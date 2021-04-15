@@ -1,1 +1,3 @@
 .nextflow*
+log/
+logs/

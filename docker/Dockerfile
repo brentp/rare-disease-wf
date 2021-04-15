@@ -1,4 +1,4 @@
-FROM gcr.io/deepvariant-docker/deepvariant:1.0.0
+FROM gcr.io/deepvariant-docker/deepvariant:1.1.0
 WORKDIR /dv/
 RUN cp -r /opt/deepvariant /dv
 RUN cp -r /opt/models /dv

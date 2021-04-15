@@ -17,7 +17,7 @@ nextflow run rare-disease.nf --ped $ped \
 
 This will:
 
- 1. Run [DeepVariant](https://github.com/google/deepvariant) and [GLNexus](https://github.com/dnanexus-rnd/GLnexus) which we have shown to give higher quality results for trios in an efficient nextflow workflow that can be easily run in the cloud or on a cluster.
+ 1. Run [DeepVariant](https://github.com/google/deepvariant) and [GLNexus](https://github.com/dnanexus-rnd/GLnexus) (we have shown these tools to give higher quality results for trios) in an efficient nextflow workflow that can be easily run in the cloud or on a cluster.
  1. Decompose and normalize variants.
  1. Annotate with [bcftools csq](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5870570/) and [snpEff](https://pcingola.github.io/SnpEff/adds/SnpEff_paper.pdf) 
  1. Annotate with allele frequency and inheritance modes using [slivar](https://github.com/brentp/slivar)
