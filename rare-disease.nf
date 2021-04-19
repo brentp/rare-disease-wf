@@ -6,7 +6,6 @@ process DeepVariant {
     //container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.0.0'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
-
     input:
         tuple(val(sample_id), path(aln_file), path(aln_index), path(fasta), path(fai))
 
@@ -21,6 +20,7 @@ if [[ "$is_cram" == "true" ]]; then
     samtools view --write-index --threads ${params.cpus} -bT $fasta -o ${sample_id}.bam $aln_file
 else
     ln -sf $aln_file ${sample_id}.bam
+    ln -sf $aln_index ${sample_id}.bam.bai
 fi
 
 /opt/deepvariant/bin/run_deepvariant \
@@ -42,11 +42,11 @@ process split {
 
     script:
     """
-    # get large chroms and chrM
+    # get large chroms and chrM in one file each
     for chrom in \$(awk '\$2 > 40000000 || \$1 ~/(M|MT)\$/' $fai | cut -f 1); do
         bcftools view $gvcf --threads 3 -O b -o \$(basename $gvcf .gvcf.gz).\${chrom}.split.gvcf.gz \$chrom
     done
-    # small HLA and gl chroms
+    # small HLA and gl chroms all to go single file
     awk '!(\$2 > 40000000 || \$1 ~/(M|MT)\$/) { print \$1"\\t0\\t"\$2+1 }' $fai > other_chroms
     bcftools view $gvcf --threads 3 -R other_chroms -O b -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
     """
@@ -73,7 +73,7 @@ process glnexus_anno_slivar {
 glnexus_cli \
     -t ${params.cpus} \
     --mem-gbytes 128 \
-    --config DeepVariantWES \
+    --config DeepVariant${params.model_type} \
     --list $workDir/file.list.${cohort_name} \
 | bcftools norm --threads 3 -m - -w 10000 -f $fasta -O v - \
 | snpEff -Xmx4G eff -noStats GRCh38.99 \
@@ -89,6 +89,6 @@ bcftools index --threads 6 $output_file
 workflow {
 
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
-    DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
+    DeepVariant(["HG002", "/data_human/hg002.cram", "/data_human/hg002.cram.crai", "/data_human/g1k_v37_decoy.fa", "/data_human/g1k_v37_decoy.fa.fai"]) | view
 
 }

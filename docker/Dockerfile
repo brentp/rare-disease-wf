@@ -64,5 +64,5 @@ RUN cd /slivar && \
     echo '#!/bin/bash' > /usr/local/bin/snpEff && \
     echo 'java -jar -Xmx4g /slivar/snpEff/snpEff.jar "$@"' >> /usr/local/bin/snpEff && \
     chmod +x /usr/local/bin/snpEff && \
-    snpEff -version && \
-    snpEff download GRCh38.99
+    snpEff -version
+    #&& \ snpEff download GRCh38.99
