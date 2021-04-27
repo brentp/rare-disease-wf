@@ -30,6 +30,7 @@ This will:
 Development and research is underway so that it will:
 
  1. Auto-generate per-family IGV images or interactive igv.js pages of candidate variants.
+ 1. Automatically detect trios in the given pedigree file (or via [somalier](https://github.com/brentp/somalier)) and run [DeepTrio](https://www.biorxiv.org/content/10.1101/2021.04.05.438434v1.full)
  1. Add a high-quality set of SV/CNVs
     - [Manta](https://github.com/Illumina/manta) + SVchannels and [duphold](https://github.com/brentp/duphold) filtering
  1. Add some **prioritization** of variants
