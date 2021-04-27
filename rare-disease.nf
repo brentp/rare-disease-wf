@@ -1,9 +1,12 @@
 nextflow.enable.dsl=2
 
 process DeepVariant {
-    //tag {"DeepVariant ${sample_id}"}
-    //label "DeepVariant"
+    tag {"DeepVariant ${sample_id}"}
+    label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
+    publishDir "results-rare-disease", mode: 'copy'
+    // container = '/hpc/compgen/users/bpedersen/deepvariant_1_1_0.sif'
+
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
@@ -11,7 +14,7 @@ process DeepVariant {
 
     output:
       //tuple(file("${sample_id}.gvcf.gz"), file("${sample_id}.gvcf.gz.csi"))
-      file("${sample_id}.gvcf.gz")
+      tuple(file("${sample_id}.gvcf.gz"), file("${sample_id}.gvcf.gz.tbi"))
 
 
     script:
@@ -26,10 +29,14 @@ process DeepVariant {
 #fi
 #--reads=${sample_id}.bam \
 
+echo "TMPDIR:\$TMPDIR"
+
 /opt/deepvariant/bin/run_deepvariant \
     --reads=${aln_file} \
+    --intermediate_results_dir=\$TMPDIR \
     --model_type=${params.model_type} \
     --output_gvcf=${sample_id}.gvcf.gz \
+    --output_vcf=${sample_id}.vcf.gz \
     --num_shards=${params.cpus} \
     --ref=$fasta
  
@@ -41,12 +48,12 @@ process DeepVariant {
 process split {
     container = 'docker://brentp/rare-disease:v0.0.1'
 
-    input: tuple(path(gvcf), path(fai))
+    input: tuple(path(gvcf), path(tbi))
+           path(fai)
     output: file("*.split.gvcf.gz")
 
     script:
     """
-    bcftools index --threads 5 $gvcf # todo do this in deepvariant container
     # get large chroms and chrM in one file each
     for chrom in \$(awk '\$2 > 40000000 || \$1 ~/(M|MT)\$/' $fai | cut -f 1); do
         bcftools view $gvcf --threads 3 -O b -o \$(basename $gvcf .gvcf.gz).\${chrom}.split.gvcf.gz \$chrom
@@ -94,6 +101,9 @@ bcftools index --threads 6 $output_file
 workflow {
 
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
-    DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
+   // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
+    fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
+    gvcfs_tbis = DeepVariant(["10-09745", "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bam", "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bai", fasta, fasta + ".fai"]) 
+    split(gvcfs_tbis, fasta + ".fai")
 
 }
