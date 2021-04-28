@@ -1,7 +1,6 @@
 nextflow.enable.dsl=2
 
 process DeepVariant {
-    tag {"DeepVariant ${sample_id}"}
     label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
     publishDir "results-rare-disease", mode: 'copy'
@@ -10,7 +9,9 @@ process DeepVariant {
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
-        tuple(val(sample_id), path(aln_file), path(aln_index), path(fasta), path(fai))
+        tuple(val(sample_id), path(aln_file), path(aln_index))
+        path(fasta)
+        path(fai)
 
     output:
       //tuple(file("${sample_id}.gvcf.gz"), file("${sample_id}.gvcf.gz.csi"))
@@ -60,7 +61,10 @@ process split {
     done
     # small HLA and gl chroms all to go single file
     awk '!(\$2 > 40000000 || \$1 ~/(M|MT)\$/) { print \$1"\\t0\\t"\$2+1 }' $fai > other_chroms
-    bcftools view $gvcf --threads 3 -R other_chroms -O b -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
+    # if it's non-empty then create the extras / other split file
+    if [ -s other_chroms ]; then
+        bcftools view $gvcf --threads 3 -R other_chroms -O b -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
+    fi
     """
 
 }
@@ -70,7 +74,7 @@ process glnexus_anno_slivar {
     label {"GLNexus"}
     container = 'docker://brentp/rare-disease:v0.0.1'
 
-    input: tuple(val(gvcfs), val(cohort_name))
+    input: tuple(val(gvcfs), val(cohort_name), val(chrom))
     output: tuple(path(output_file), path(output_csi))
 
 
@@ -103,7 +107,20 @@ workflow {
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
    // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
     fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
-    gvcfs_tbis = DeepVariant(["10-09745", "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bam", "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bai", fasta, fasta + ".fai"]) 
-    split(gvcfs_tbis, fasta + ".fai")
+    samples = [
+        ["150424",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bai"],
+        ["150423",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bai"],
+        ["150426",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
+    ]
+    cinput = channel.fromList(samples)
+
+    gvcfs_tbis = DeepVariant(cinput, fasta, fasta + ".fai") 
+    //split(gvcfs_tbis, fasta + ".fai") | view
 
 }
