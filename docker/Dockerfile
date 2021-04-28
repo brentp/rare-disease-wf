@@ -53,3 +53,13 @@ RUN cd / && \
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
 RUN chmod +x /usr/local/bin/slivar
+
+# DATA files for slivar tsv
+RUN wget -qO - https://storage.googleapis.com/gnomad-public/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz \
+       | zcat - \
+       | cut -f 1,21,24 | tail -n+2 \
+       | awk '{ printf("%s\tpLI=%.3g;oe_lof=%.5g\n", $1, $2, $3)}' > /opt/slivar/pli.lookup
+
+RUN wget -qO - ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/gene_condition_source_id \
+    | cut -f 2,5 \
+    | grep -v ^$'\t' > /opt/slivar/clinvar_gene_desc.txt
