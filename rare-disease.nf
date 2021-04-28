@@ -108,12 +108,16 @@ workflow {
    // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
     fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
     samples = [
-        ["10-09745",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bam",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/10-09745_dedup.bai"],
-        ["09-06576",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/09-06576_dedup.bam",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_1/BAMS/09-06576_dedup.bai"]]
+        ["150424",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bai"],
+        ["150423",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bai"],
+        ["150426",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
+        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
+    ]
     cinput = channel.fromList(samples)
 
     gvcfs_tbis = DeepVariant(cinput, fasta, fasta + ".fai") 
