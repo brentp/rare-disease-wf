@@ -102,6 +102,72 @@ bcftools index --threads 6 $output_file
 
 }
 
+process slivar_rare_disease {
+  input: path(bcf)
+         path(ped)
+         path(gnomad_zip)
+  output: tuple(path(slivar_bcf), path(slivar_ch_bcf) path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv))
+
+  script:
+  slivar_bcf = getBaseName(bcf) + ".slivar.bcf"
+  slivar_ch_bcf = getBaseName(bcf) + ".slivar.ch.bcf"
+  slivar_bcf_csi = slivar_bcf + ".csi"
+  slivar_ch_bcf_csi = slivar_ch_bcf + ".csi"
+  slivar_tsv = getBaseName(bcf) + ".slivar.tsv"
+
+  script:
+  """
+# NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
+slivar expr --vcf $slivar_bcf \
+    --ped $ped \
+    -o $slivar_bcf \
+    --pass-only \
+    -g $gnomad_zip \
+    --info 'INFO.gnomad_popmax_af < 0.01 && variant.FILTER == "PASS" && variant.ALT[0] != "*"' \
+    --js /opt/slivar/slivar-functions.js \
+    --family-expr 'denovo:fam.every(segregating_denovo) && INFO.gnomad_popmax_af < 0.001' \
+    --family-expr 'recessive:fam.every(segregating_recessive)' \
+    --family-expr 'x_denovo:(variant.CHROM == "X" || variant.CHROM == "chrX") && fam.every(segregating_denovo_x) && INFO.gnomad_popmax_af < 0.001' \
+    --family-expr 'x_recessive:(variant.CHROM == "X" || variant.CHROM == "chrX") && fam.every(segregating_recessive_x)' \
+    --family-expr 'dominant:INFO.gnomad_popmax_af < 0.005 && fam.every(segregating_dominant)' \
+    --trio 'comphet_side:comphet_side(kid, mom, dad) && INFO.gnomad_nhomalt < 10'
+
+bcftools index --threads 3 $slivar_bcf &
+
+slivar compound-hets -v $slivar_bcf \
+    --sample-field comphet_side --sample-field denovo -p $ped \
+  | bcftools view -O b -o $slivar_ch_bcf
+
+bcftools index --threads 3 $slivar_ch_bcf &
+
+slivar tsv \
+  -s denovo \
+  -s x_denovo \
+  -s recessive \
+  -s x_recessive \
+  -s dominant \
+  -i gnomad_popmax_af -i gnomad_popmax_af_filter -i gnomad_nhomalt \
+  -i impactful -i genic \
+  -c BCSQ \
+  -g /opt/slivar/pli.lookup \
+  -g /opt/slivar/clinvar_gene_desc.txt \
+  -p $ped \
+  $slivar_bcf > $slivar_tsv
+
+slivar tsv \
+  -s slivar_comphet \
+  -i gnomad_popmax_af -i gnomad_popmax_af_filter -i gnomad_nhomalt \
+  -i impactful -i genic \
+  -c BCSQ \
+  -g /opt/slivar/pli.lookup \
+  -g /opt/slivar/clinvar_gene_desc.txt \
+  -p $ped \
+  | grep -v ^# >> $slivar_tsv
+
+wait
+  """
+}
+
 workflow {
 
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
