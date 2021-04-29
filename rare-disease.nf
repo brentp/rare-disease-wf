@@ -70,32 +70,37 @@ process split {
 }
 
 process glnexus_anno_slivar {
-    tag {"GLNexus BCFtools Slivar ${cohort_name}"}
-    label {"GLNexus"}
-    container = 'docker://brentp/rare-disease:v0.0.1'
+    container = 'docker://brentp/rare-disease:v0.0.2'
 
-    input: tuple(val(gvcfs), val(cohort_name), val(chrom))
+    input: tuple(val(gvcfs), val(chrom))
+        file(fasta)
+        file(fai)
+        file(gff)
+        file(slivar_zip)
+        val(cohort_name)
+
     output: tuple(path(output_file), path(output_csi))
 
-
     script:
-    file("$workDir/file.list.${cohort_name}").withWriter { fh ->
+    file("$workDir/file.list.${cohort_name}.${chrom}").withWriter { fh ->
         gvcfs.each { gvcf ->
             fh.write(gvcf.toString()); fh.write("\n")
         }
     }
-    output_file = "${cohort_name}.glnexus.anno.bcf"
+    output_file = "${cohort_name}.${chrom}.glnexus.anno.bcf"
     output_csi = "${output_file}.csi"
     """
+# GRCh38.99
+# GRCh37.75
 glnexus_cli \
     -t ${params.cpus} \
     --mem-gbytes 128 \
     --config DeepVariant${params.model_type} \
-    --list $workDir/file.list.${cohort_name} \
+    --list $workDir/file.list.${cohort_name}.${chrom} \
 | bcftools norm --threads 3 -m - -w 10000 -f $fasta -O v - \
-| snpEff -Xmx4G eff -noStats GRCh38.99 \
-| bcftools csq --threads 3 -s - --ncsq 40 -g /data/Homo_sapiens.GRCh38.95.chr.prefix.gff3.gz -l -f $fasta - -o - -O u \
-| slivar expr -g /data/gnomad.hg38.genomes.v3.fix.zip -o $output_file
+| snpEff -Xmx4G eff -noStats GRCh37.75 \
+| bcftools csq --threads 3 -s - --ncsq 40 -g $gff -l -f $fasta - -o - -O u \
+| slivar expr -g $slivar_zip -o $output_file
 
 bcftools index --threads 6 $output_file
     """
@@ -103,10 +108,14 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
+  container = 'docker://brentp/rare-disease:v0.0.2'
+  publishDir "results-rare-disease", mode: 'copy'
+
   input: path(bcf)
          path(ped)
          path(gnomad_zip)
-  output: tuple(path(slivar_bcf), path(slivar_ch_bcf) path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv))
+
+  output: tuple(path(slivar_bcf), path(slivar_ch_bcf), path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv))
 
   script:
   slivar_bcf = getBaseName(bcf) + ".slivar.bcf"
@@ -115,7 +124,6 @@ process slivar_rare_disease {
   slivar_ch_bcf_csi = slivar_ch_bcf + ".csi"
   slivar_tsv = getBaseName(bcf) + ".slivar.tsv"
 
-  script:
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
 slivar expr --vcf $slivar_bcf \
@@ -173,6 +181,8 @@ workflow {
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
    // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
     fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
+    gff = "/home/cog/bpedersen/src/rare-disease-wf/Homo_sapiens.GRCh37.87.chr.gff3.gz"
+    slivar_zip = "/hpc/compgen/users/bpedersen/gnomad.37.zip"
     samples = [
         ["150424",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bam",
@@ -187,6 +197,15 @@ workflow {
     cinput = channel.fromList(samples)
 
     gvcfs_tbis = DeepVariant(cinput, fasta, fasta + ".fai") 
-    //split(gvcfs_tbis, fasta + ".fai") | view
+    //  something.$chrom.split.gvcf.gz
+    sp = split(gvcfs_tbis, fasta + ".fai")
+    gr_by_chrom = sp.flatMap { it }
+         | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
+         | groupTuple(by: 1) 
+
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
+    slivar_rare_disease(joint_by_chrom, params.ped, slivar_zip) | view
+
+
 
 }
