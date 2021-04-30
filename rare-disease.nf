@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 process DeepVariant {
     label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
-    publishDir "results-rare-disease", mode: 'copy'
+    publishDir "results-rare-disease/gvcfs/", mode: 'copy'
     // container = '/hpc/compgen/users/bpedersen/deepvariant_1_1_0.sif'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -47,7 +47,7 @@ echo "TMPDIR:\$TMPDIR"
 }
 
 process split {
-    container = 'docker://brentp/rare-disease:v0.0.1'
+    container = 'docker://brentp/rare-disease:v0.0.2'
 
     input: tuple(path(gvcf), path(tbi))
            path(fai)
@@ -57,13 +57,13 @@ process split {
     """
     # get large chroms and chrM in one file each
     for chrom in \$(awk '\$2 > 40000000 || \$1 ~/(M|MT)\$/' $fai | cut -f 1); do
-        bcftools view $gvcf --threads 3 -O b -o \$(basename $gvcf .gvcf.gz).\${chrom}.split.gvcf.gz \$chrom
+        bcftools view $gvcf --threads 3 -O z -o \$(basename $gvcf .gvcf.gz).\${chrom}.split.gvcf.gz \$chrom
     done
     # small HLA and gl chroms all to go single file
     awk '!(\$2 > 40000000 || \$1 ~/(M|MT)\$/) { print \$1"\\t0\\t"\$2+1 }' $fai > other_chroms
     # if it's non-empty then create the extras / other split file
     if [ -s other_chroms ]; then
-        bcftools view $gvcf --threads 3 -R other_chroms -O b -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
+        bcftools view $gvcf --threads 3 -R other_chroms -O z -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
     fi
     """
 
@@ -71,18 +71,21 @@ process split {
 
 process glnexus_anno_slivar {
     container = 'docker://brentp/rare-disease:v0.0.2'
+    shell = ['/bin/bash', '-euo', 'pipefail']
+    publishDir "results-rare-disease", mode: 'copy'
 
-    input: tuple(val(gvcfs), val(chrom))
-        file(fasta)
-        file(fai)
-        file(gff)
-        file(slivar_zip)
+    input:
+        tuple(val(gvcfs), val(chrom))
+        path(fasta)
+        path(fai)
+        path(gff)
+        path(slivar_zip)
         val(cohort_name)
 
     output: tuple(path(output_file), path(output_csi))
 
     script:
-    file("$workDir/file.list.${cohort_name}.${chrom}").withWriter { fh ->
+    file("file.list.${cohort_name}.${chrom}").withWriter { fh ->
         gvcfs.each { gvcf ->
             fh.write(gvcf.toString()); fh.write("\n")
         }
@@ -92,15 +95,18 @@ process glnexus_anno_slivar {
     """
 # GRCh38.99
 # GRCh37.75
+# TODO: can't yet get snpEff working 
+
+# | snpEff ann -noStats -dataDir {params.snpeff_data_dir} GRCh37.75
+
 glnexus_cli \
-    -t ${params.cpus} \
+    -t ${task.cpus} \
     --mem-gbytes 128 \
     --config DeepVariant${params.model_type} \
-    --list $workDir/file.list.${cohort_name}.${chrom} \
-| bcftools norm --threads 3 -m - -w 10000 -f $fasta -O v - \
-| snpEff -Xmx4G eff -noStats GRCh37.75 \
-| bcftools csq --threads 3 -s - --ncsq 40 -g $gff -l -f $fasta - -o - -O u \
-| slivar expr -g $slivar_zip -o $output_file
+    --list file.list.${cohort_name}.${chrom} \
+| bcftools norm --threads 3 -m - -w 10000 -f $fasta -O u \
+| bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o - -O u \
+| slivar expr -g $slivar_zip -o $output_file --vcf -
 
 bcftools index --threads 6 $output_file
     """
@@ -176,13 +182,43 @@ wait
   """
 }
 
+
+process manta {
+    publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
+    input:
+        tuple(path(bam), path(index))
+        val(sample_name)
+        path(fasta)
+        path(fai)
+
+    output:
+        path("*.vcf.gz")
+
+    script:
+    """
+
+# limit to larger chroms ( > 10MB)
+awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
+configManta.py --bam $bam --referenceFasta $fasta --runDir . --callRegions cr.bed
+python ./runWorkflow.py -j ${task.cpus}
+mv results/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
+mv results/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
+mv results/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
+rm -r results/
+    """
+}
+
+
+
+       
+
 workflow {
 
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
    // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
     fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
     gff = "/home/cog/bpedersen/src/rare-disease-wf/Homo_sapiens.GRCh37.87.chr.gff3.gz"
-    slivar_zip = "/hpc/compgen/users/bpedersen/gnomad.37.zip"
+    slivar_zip = "/hpc/compgen/users/bpedersen/gnomad.hg37.zip"
     samples = [
         ["150424",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bam",
@@ -203,8 +239,8 @@ workflow {
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
 
-    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
-    slivar_rare_disease(joint_by_chrom, params.ped, slivar_zip) | view
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort) | view
+    //slivar_rare_disease(joint_by_chrom, params.ped, slivar_zip) | view
 
 
 
