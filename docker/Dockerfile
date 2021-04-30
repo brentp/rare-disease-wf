@@ -46,7 +46,7 @@ RUN cd / && \
     unzip -q snpEff_latest_core.zip && \
     rm -rf snpEff_latest_core.zip snpEff/examples/ snpEff/galaxy snpEff/scripts && \
     echo '#!/bin/bash' > /usr/local/bin/snpEff && \
-    echo 'java -jar -Xmx4g /snpEff/snpEff.jar "$@"' >> /usr/local/bin/snpEff && \
+    echo 'java -Xmx4g -jar /snpEff/snpEff.jar "$@"' >> /usr/local/bin/snpEff && \
     chmod +x /usr/local/bin/snpEff && \
     snpEff -version # && snpEff download GRCh38.99
 
