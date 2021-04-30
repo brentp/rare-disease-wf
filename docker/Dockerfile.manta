@@ -3,11 +3,14 @@ FROM ubuntu:16.04
 RUN apt-get update -qq \
     && apt-get -y install --no-install-recommends build-essential bzip2 python2.7
 
-
 WORKDIR /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
-RUN tar xjf manta-1.6.0.centos6_x86_64.tar.bz2 && rm manta-1.6.0.centos6_x86_64.tar.bz2 && rm -rf manta-1.6.0.centos6_x86_64/manta-1.6.0.centos6_x86_64/share
-RUN cp /usr/bin/python2.7 /usr/bin/python2
+RUN  cp /usr/bin/python2.7 /usr/bin/python2 \
+	     && tar xjf manta-1.6.0.centos6_x86_64.tar.bz2 \
+	     && rm manta-1.6.0.centos6_x86_64.tar.bz2 \
+	     && rm -rf manta-1.6.0.centos6_x86_64/manta-1.6.0.centos6_x86_64/share
+
+ADD configManta.py.ini /opt/manta-1.6.0.centos6_x86_64/bin/
 
 ENV PATH=/opt/manta-1.6.0.centos6_x86_64/bin:/opt/manta-1.6.0.centos6_x86_64/libexec/:/opt/:manta-1.6.0.centos6_x86_64/lib/python/:$PATH
 
