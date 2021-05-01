@@ -75,7 +75,7 @@ process glnexus_anno_slivar {
     publishDir "results-rare-disease", mode: 'copy'
 
     input:
-        tuple(val(gvcfs), val(chrom))
+        tuple(path(gvcfs), val(chrom))
         path(fasta)
         path(fai)
         path(gff)
@@ -85,25 +85,26 @@ process glnexus_anno_slivar {
     output: tuple(path(output_file), path(output_csi))
 
     script:
-    file("file.list.${cohort_name}.${chrom}").withWriter { fh ->
-        gvcfs.each { gvcf ->
-            fh.write(gvcf.toString()); fh.write("\n")
+        output_file = "${cohort_name}.${chrom}.glnexus.anno.bcf"
+        output_csi = "${output_file}.csi"
+        print("gvcfs:")
+        println(gvcfs)
+        file("$workDir/file.list.${cohort_name}.${chrom}").withWriter { fh ->
+            gvcfs.each { gvcf ->
+                fh.write(gvcf.toString()); fh.write("\n")
+            }
         }
-    }
-    output_file = "${cohort_name}.${chrom}.glnexus.anno.bcf"
-    output_csi = "${output_file}.csi"
-    """
+        """
 # GRCh38.99
 # GRCh37.75
 # TODO: can't yet get snpEff working 
-
 # | snpEff ann -noStats -dataDir {params.snpeff_data_dir} GRCh37.75
 
 glnexus_cli \
     -t ${task.cpus} \
     --mem-gbytes 128 \
     --config DeepVariant${params.model_type} \
-    --list file.list.${cohort_name}.${chrom} \
+    --list $workDir/file.list.${cohort_name}.${chrom} \
 | bcftools norm --threads 3 -m - -w 10000 -f $fasta -O u \
 | bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o - -O u \
 | slivar expr -g $slivar_zip -o $output_file --vcf -
@@ -238,8 +239,10 @@ workflow {
     gr_by_chrom = sp.flatMap { it }
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
+    print("^ gr by chrom:")
+    println(gr_by_chrom)
 
-    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort) | view
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
     //slivar_rare_disease(joint_by_chrom, params.ped, slivar_zip) | view
 
 
