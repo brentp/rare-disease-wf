@@ -133,7 +133,7 @@ process slivar_rare_disease {
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
 ls -lh $bcf
-# TODO: export SLIVAR_SUMMARY_FILE=$slivar_summary
+# TODO: export SLIVAR_SUMMARY_FILE=slivar_summary
 slivar expr --vcf $bcf \
     --ped $ped \
     -o $slivar_bcf \
@@ -188,9 +188,9 @@ wait
 
 process manta {
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
+    shell = ['/bin/bash', '-euo', 'pipefail']
     input:
-        tuple(path(bam), path(index))
-        val(sample_name)
+        tuple(val(sample_name), path(bam), path(index))
         path(fasta)
         path(fai)
 
@@ -199,7 +199,6 @@ process manta {
 
     script:
     """
-
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
 configManta.py --bam $bam --referenceFasta $fasta --runDir . --callRegions cr.bed
@@ -210,10 +209,6 @@ mv results/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.g
 rm -r results/
     """
 }
-
-
-
-       
 
 workflow {
 
@@ -233,9 +228,12 @@ workflow {
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
     ]
-    cinput = channel.fromList(samples)
+    input = channel.fromList(samples)
 
-    gvcfs_tbis = DeepVariant(cinput, fasta, fasta + ".fai") 
+    gvcfs_tbis = DeepVariant(input, fasta, fasta + ".fai") 
+
+    manta_results = manta(input, fasta, fasta + ".fai")
+
     //  something.$chrom.split.gvcf.gz
     sp = split(gvcfs_tbis, fasta + ".fai")
     gr_by_chrom = sp.flatMap { it }
