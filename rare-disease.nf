@@ -47,7 +47,7 @@ echo "TMPDIR:\$TMPDIR"
 }
 
 process split {
-    container = 'docker://brentp/rare-disease:v0.0.2'
+    container = 'docker://brentp/rare-disease:v0.0.3'
 
     input: tuple(path(gvcf), path(tbi))
            path(fai)
@@ -70,9 +70,9 @@ process split {
 }
 
 process glnexus_anno_slivar {
-    container = 'docker://brentp/rare-disease:v0.0.2'
+    container = 'docker://brentp/rare-disease:v0.0.3'
     shell = ['/bin/bash', '-euo', 'pipefail']
-    publishDir "results-rare-disease", mode: 'copy'
+    publishDir "results-rare-disease/joint-by-chrom/", mode: 'copy'
 
     input:
         tuple(path(gvcfs), val(chrom))
@@ -87,8 +87,6 @@ process glnexus_anno_slivar {
     script:
         output_file = "${cohort_name}.${chrom}.glnexus.anno.bcf"
         output_csi = "${output_file}.csi"
-        print("gvcfs:")
-        println(gvcfs)
         file("$workDir/file.list.${cohort_name}.${chrom}").withWriter { fh ->
             gvcfs.each { gvcf ->
                 fh.write(gvcf.toString()); fh.write("\n")
@@ -115,25 +113,28 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.0.2'
-  publishDir "results-rare-disease", mode: 'copy'
+  container = 'docker://brentp/rare-disease:v0.0.3'
+  publishDir "results-rare-disease/joint-by-chrom-slivar/", mode: 'copy'
+  shell = ['/bin/bash', '-euo', 'pipefail']
 
-  input: path(bcf)
+  input: tuple(path(bcf), path(csi))
          path(ped)
          path(gnomad_zip)
 
   output: tuple(path(slivar_bcf), path(slivar_ch_bcf), path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv))
 
   script:
-  slivar_bcf = getBaseName(bcf) + ".slivar.bcf"
-  slivar_ch_bcf = getBaseName(bcf) + ".slivar.ch.bcf"
+  slivar_bcf = bcf.getBaseName() + ".slivar.bcf"
+  slivar_ch_bcf = bcf.getBaseName() + ".slivar.ch.bcf"
   slivar_bcf_csi = slivar_bcf + ".csi"
   slivar_ch_bcf_csi = slivar_ch_bcf + ".csi"
-  slivar_tsv = getBaseName(bcf) + ".slivar.tsv"
+  slivar_tsv = bcf.getBaseName() + ".slivar.tsv"
 
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
-slivar expr --vcf $slivar_bcf \
+ls -lh $bcf
+# TODO: export SLIVAR_SUMMARY_FILE=$slivar_summary
+slivar expr --vcf $bcf \
     --ped $ped \
     -o $slivar_bcf \
     --pass-only \
@@ -177,7 +178,8 @@ slivar tsv \
   -g /opt/slivar/pli.lookup \
   -g /opt/slivar/clinvar_gene_desc.txt \
   -p $ped \
-  | grep -v ^# >> $slivar_tsv
+  $slivar_ch_bcf \
+  | { grep -v ^# || true; } >> $slivar_tsv # || true avoids error if there are no compound hets.
 
 wait
   """
@@ -239,11 +241,14 @@ workflow {
     gr_by_chrom = sp.flatMap { it }
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
-    print("^ gr by chrom:")
-    println(gr_by_chrom)
 
     joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
-    //slivar_rare_disease(joint_by_chrom, params.ped, slivar_zip) | view
+    // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
+    jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
+    jbf | view
+
+    slivar_rare_disease(jbf, params.ped, slivar_zip) // | view
+    // TODO merge and fix TSV
 
 
 
