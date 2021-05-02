@@ -52,7 +52,7 @@ RUN cd / && \
 
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
-RUN chmod +x /usr/local/bin/slivar
+RUN chmod +x /usr/local/bin/slivar && chmod a+r /opt/slivar/slivar-functions.js
 
 # DATA files for slivar tsv
 RUN wget -qO - https://storage.googleapis.com/gnomad-public/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz \
