@@ -187,6 +187,8 @@ wait
 
 
 process manta {
+    errorStrategy 'terminate' // TODO: change after debugging is done
+
     container = 'docker://brentp/manta-graphtyper:v0.0.3'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -205,9 +207,9 @@ awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c 
 tabix cr.bed.gz
 configManta.py --bam $bam --referenceFasta $fasta --runDir . --callRegions cr.bed.gz
 python2 ./runWorkflow.py -j ${task.cpus}
-mv results/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
-mv results/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
-mv results/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
+mv results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
+mv results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
+mv results/variants/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
 rm -r results/
     """
 }
@@ -294,7 +296,7 @@ workflow {
     mr  | view
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    graphtyper(input, sv_merged, fasta, fasta + ".fai")
+    graphtyper_sv(input, sv_merged, fasta, fasta + ".fai", "NO-REGION")
 
        
 
