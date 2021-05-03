@@ -24,7 +24,7 @@ ENV PATH=/opt/manta-1.6.0.centos6_x86_64/bin:/opt/manta-1.6.0.centos6_x86_64/lib
 WORKDIR /opt
 ENV PATH=/opt/miniconda/bin:$PATH
 RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
-	    && conda install -yc bioconda pysam && \
+	    && conda install -yc bioconda pysam bcftools && \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
 	    git clone https://github.com/DecodeGenetics/svimmer && \
 	    cp svimmer/svimmer svimmer/sv.py svimmer/utilities.py /opt/miniconda/bin/ && \
