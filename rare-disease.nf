@@ -215,7 +215,7 @@ rm -r results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-graphtyper:v0.0.3'
+    container = 'docker://brentp/manta-graphtyper:v0.0.4'
     publishDir "results-rare-disease/manta-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -225,16 +225,10 @@ process svimmer {
     output: tuple(file("${output_file}"), file("${output_file}.tbi"))
 
     script:
-    chroms = []
     output_file = "svimmer.merged.vcf.gz"
-    file(fai).eachLine { line ->
-        toks = line.split("\t")
-        if(toks[1].toInteger() > 10000000) {
-            chroms.add(toks[0])
-        }
-    }
     """
-    svimmer --max_distance 100 --max_size_difference 60 $file_list ${chroms.join(' ')} \
+    chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }') 
+    svimmer --max_distance 100 --max_size_difference 60 \$chroms \
         | bgzip --threads 3 > $output_file
     tabix $output_file
     """
@@ -242,27 +236,34 @@ process svimmer {
 
 process graphtyper_sv {
     shell = ['/bin/bash', '-euo', 'pipefail']
+    container = 'docker://brentp/manta-graphtyper:v0.0.4'
 
     input:
         val(samples_bams_indexes)
         path(merged_sv_vcf)
         path(fasta)
         path(fai)
-        val(region)
+        val(chrom)
     output:
-        file("graphtyper_sv_results/*")
+        tuple(file("svs.$chrom.bcf"), file("svs.$chrom.bcf.csi"))
+
 
     script:
-    file("$workDir/bams.list.${region}").withWriter { fh ->
+    file("$workDir/bams.list.${chrom}").withWriter { fh ->
             samples_bams_indexes.each { bi ->
                 fh.write(bi[1].toString()); fh.write("\n")
             }
     }
     """
+    bcftools index --threads 4 $merged_sv_vcf # TODO: pass in index
     graphtyper genotype_sv $fasta $merged_sv_vcf \
-        --sams=$workDir/bam.list.$regions \
+        --sams=$workDir/bam.list.$chrom \
         --threads=${task.cpus} \
+        --force_use_input_ref_for_cram_reading \
         --output=graphtyper_sv_results/
+    bcftools concat --threads 3 -O u -o - results/*/*.vcf.gz \
+       | bcftools sort -m 2G -T $TMPDIR -o svs.$chrom.bcf -O b -
+    bcftools index --threads 4 svs.$chrom.bcf
     """
 }
 
@@ -292,8 +293,9 @@ workflow {
     manta_results = manta(input, fasta, fasta + ".fai")
 
     mr = manta_results 
-        | map { it -> it.find(it ~/candidateSV.vcf.gz/) }
-    mr  | view
+        | map { it -> it.find { it =~ /candidateSV.vcf.gz/ } } | collect
+    mr | view
+
     sv_merged = svimmer(mr, fasta + ".fai")
 
     graphtyper_sv(input, sv_merged, fasta, fasta + ".fai", "NO-REGION")
