@@ -261,7 +261,8 @@ process graphtyper_sv {
         --threads=${task.cpus} \
         --force_use_input_ref_for_cram_reading \
         --output=graphtyper_sv_results/
-    bcftools concat --threads 3 -O u -o - results/*/*.vcf.gz \
+    ls graphtyper_sv_results/*/*.vcf.gz > file.list
+    bcftools concat --threads 3 -O u -o - --file-list file.list \
        | bcftools sort -m 2G -T $TMPDIR -o svs.$chrom.bcf -O b -
     bcftools index --threads 4 svs.$chrom.bcf
     """
