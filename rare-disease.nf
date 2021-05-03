@@ -187,6 +187,7 @@ wait
 
 
 process manta {
+    container = 'docker://brentp/manta-graphtyper:v0.0.3'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
     input:
@@ -200,15 +201,69 @@ process manta {
     script:
     """
 # limit to larger chroms ( > 10MB)
-awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
-configManta.py --bam $bam --referenceFasta $fasta --runDir . --callRegions cr.bed
-python ./runWorkflow.py -j ${task.cpus}
+awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
+tabix cr.bed.gz
+configManta.py --bam $bam --referenceFasta $fasta --runDir . --callRegions cr.bed.gz
+python2 ./runWorkflow.py -j ${task.cpus}
 mv results/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
 mv results/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
 mv results/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
 rm -r results/
     """
 }
+
+process svimmer {
+    container = 'docker://brentp/manta-graphtyper:v0.0.3'
+    publishDir "results-rare-disease/manta-merged/", mode: 'copy'
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    input:
+        val(candidateSVs)
+        path(fai)
+    output: tuple(file("${output_file}"), file("${output_file}.tbi"))
+
+    script:
+    chroms = []
+    output_file = "svimmer.merged.vcf.gz"
+    file(fai).eachLine { line ->
+        toks = line.split("\t")
+        if(toks[1].toInteger() > 10000000) {
+            chroms.add(toks[0])
+        }
+    }
+    """
+    svimmer --max_distance 100 --max_size_difference 60 $file_list ${chroms.join(' ')} \
+        | bgzip --threads 3 > $output_file
+    tabix $output_file
+    """
+}
+
+process graphtyper_sv {
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    input:
+        val(samples_bams_indexes)
+        path(merged_sv_vcf)
+        path(fasta)
+        path(fai)
+        val(region)
+    output:
+        file("graphtyper_sv_results/*")
+
+    script:
+    file("$workDir/bams.list.${region}").withWriter { fh ->
+            samples_bams_indexes.each { bi ->
+                fh.write(bi[1].toString()); fh.write("\n")
+            }
+    }
+    """
+    graphtyper genotype_sv $fasta $merged_sv_vcf \
+        --sams=$workDir/bam.list.$regions \
+        --threads=${task.cpus} \
+        --output=graphtyper_sv_results/
+    """
+}
+
 
 workflow {
 
@@ -234,6 +289,15 @@ workflow {
 
     manta_results = manta(input, fasta, fasta + ".fai")
 
+    mr = manta_results 
+        | map { it -> it.find(it ~/candidateSV.vcf.gz/) }
+    mr  | view
+    sv_merged = svimmer(mr, fasta + ".fai")
+
+    graphtyper(input, sv_merged, fasta, fasta + ".fai")
+
+       
+
     //  something.$chrom.split.gvcf.gz
     sp = split(gvcfs_tbis, fasta + ".fai")
     gr_by_chrom = sp.flatMap { it }
@@ -243,7 +307,6 @@ workflow {
     joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
     jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
-    jbf | view
 
     slivar_rare_disease(jbf, params.ped, slivar_zip) // | view
     // TODO merge and fix TSV
