@@ -6,6 +6,7 @@ This is a necessary first step with the following limitations:
     - This is quite a small number, but the prioritization after this is highly variable across tools and analysts.
  2. it is limited text/spreadsheet output
  3. it assumes a high-quality, jointly-called VCF is already available
+ 4. it leaves the analyst with the chore of getting IGV set up, and browsing each candidate for each family.
 
 The aim of this project is a more complete workflow that can be run something like:
 
@@ -25,7 +26,11 @@ This will:
     - clinvar-gene-phenotype
     - loss-of-function intolerance
  1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
+ 1. Provide pre-made IGV outputs for each candidate.
+ 1. Output high-quality SVs (using manta-> graphtyper)
 
+
+## Future Development
 
 Development and research is underway so that it will:
 
@@ -40,4 +45,3 @@ Development and research is underway so that it will:
  1. Use GTex + phenotypes to further prioritize variants in a family and phenotype-specific way, such that, for example
     variants in genes that are not expressed in relevant tissues are down-weighted.
  1. Provide a graphical-user-interface so that sorting, filtering, note-taking, sharing is simplified
-    - this might be adding custom scripts and colors (:barf:) to a google-sheets document.
