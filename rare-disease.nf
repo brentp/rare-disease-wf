@@ -264,10 +264,12 @@ process graphtyper_sv {
     """
     bcftools index --threads 4 $merged_sv_vcf # TODO: pass in index
     graphtyper genotype_sv $fasta $merged_sv_vcf \
-        --sams=$workDir/bam.list.$chrom \
+        --sams=$workDir/bams.list.$chrom \
         --threads=${task.cpus} \
         --force_use_input_ref_for_cram_reading \
+        --region $chrom \
         --output=graphtyper_sv_results/
+
     ls graphtyper_sv_results/*/*.vcf.gz > file.list
     bcftools concat --threads 3 -O u -o - --file-list file.list \
        | bcftools sort -m 2G -T $TMPDIR -o svs.${chrom}.bcf -O b -
