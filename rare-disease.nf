@@ -189,7 +189,7 @@ wait
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/manta-graphtyper:v0.0.3'
+    container = 'docker://brentp/manta-graphtyper:v0.0.4'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
     input:
@@ -202,6 +202,7 @@ process manta {
 
     script:
     """
+ls -lha
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
 tabix cr.bed.gz
@@ -226,9 +227,15 @@ process svimmer {
 
     script:
     output_file = "svimmer.merged.vcf.gz"
+    file("$workDir/vcfs.list").withWriter { fh ->
+            candidateSVs.each { vcf ->
+                fh.write(vcf.toString()); fh.write("\n")
+            }
+    }
     """
-    chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }') 
-    svimmer --max_distance 100 --max_size_difference 60 \$chroms \
+    cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index --threads 2 {}
+    chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
+    svimmer --max_distance 100 --max_size_difference 60 $workDir/vcfs.list \$chroms \
         | bgzip --threads 3 > $output_file
     tabix $output_file
     """
@@ -245,7 +252,7 @@ process graphtyper_sv {
         path(fai)
         val(chrom)
     output:
-        tuple(file("svs.$chrom.bcf"), file("svs.$chrom.bcf.csi"))
+        tuple(file("svs.${chrom}.bcf"), file("svs.${chrom}.bcf.csi"))
 
 
     script:
@@ -263,8 +270,8 @@ process graphtyper_sv {
         --output=graphtyper_sv_results/
     ls graphtyper_sv_results/*/*.vcf.gz > file.list
     bcftools concat --threads 3 -O u -o - --file-list file.list \
-       | bcftools sort -m 2G -T $TMPDIR -o svs.$chrom.bcf -O b -
-    bcftools index --threads 4 svs.$chrom.bcf
+       | bcftools sort -m 2G -T $TMPDIR -o svs.${chrom}.bcf -O b -
+    bcftools index --threads 4 svs.${chrom}.bcf
     """
 }
 
@@ -273,7 +280,7 @@ workflow {
 
   //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
    // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
-    fasta = "/hpc/cog_bioinf/GENOMES/NF-IAP-resources//GRCh37/Sequence/genome.fa"
+    fasta = "/hpc/cog_bioinf/GENOMES.old/NF-IAP-resources//GRCh37/Sequence/genome.fa"
     gff = "/home/cog/bpedersen/src/rare-disease-wf/Homo_sapiens.GRCh37.87.chr.gff3.gz"
     slivar_zip = "/hpc/compgen/users/bpedersen/gnomad.hg37.zip"
     samples = [
@@ -295,11 +302,11 @@ workflow {
 
     mr = manta_results 
         | map { it -> it.find { it =~ /candidateSV.vcf.gz/ } } | collect
-    mr | view
 
     sv_merged = svimmer(mr, fasta + ".fai")
+    sv_merged | view
 
-    graphtyper_sv(input, sv_merged, fasta, fasta + ".fai", "NO-REGION")
+    graphtyper_sv(input.collect(), sv_merged, fasta, fasta + ".fai", "22")
 
        
 
