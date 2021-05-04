@@ -46,28 +46,8 @@ echo "TMPDIR:\$TMPDIR"
     """
 }
 
-process split {
-    container = 'docker://brentp/rare-disease:v0.0.3'
-
-    input: tuple(path(gvcf), path(tbi))
-           path(fai)
-    output: file("*.split.gvcf.gz")
-
-    script:
-    """
-    # get large chroms and chrM in one file each
-    for chrom in \$(awk '\$2 > 40000000 || \$1 ~/(M|MT)\$/' $fai | cut -f 1); do
-        bcftools view $gvcf --threads 3 -O z -o \$(basename $gvcf .gvcf.gz).\${chrom}.split.gvcf.gz \$chrom
-    done
-    # small HLA and gl chroms all to go single file
-    awk '!(\$2 > 40000000 || \$1 ~/(M|MT)\$/) { print \$1"\\t0\\t"\$2+1 }' $fai > other_chroms
-    # if it's non-empty then create the extras / other split file
-    if [ -s other_chroms ]; then
-        bcftools view $gvcf --threads 3 -R other_chroms -O z -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
-    fi
-    """
-
-}
+include { split } from "./split"
+include { split as split_sv } from "./split"
 
 process glnexus_anno_slivar {
     container = 'docker://brentp/rare-disease:v0.0.3'
@@ -248,10 +228,9 @@ process graphtyper_sv {
 
     input:
         val(samples_bams_indexes)
-        path(merged_sv_vcf)
+        tuple(path(merged_sv_vcf), val(chrom))
         path(fasta)
         path(fai)
-        val(chrom)
     output:
         tuple(file("svs.${chrom}.bcf"), file("svs.${chrom}.bcf.csi"))
 
@@ -306,9 +285,17 @@ workflow {
     mr = manta_results 
         | map { it -> it.find { it =~ /candidateSV.vcf.gz/ } } | collect
 
+
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    graphtyper_sv(input.toList(), sv_merged, fasta, fasta + ".fai", "22")
+    sv_by_chrom = split_sv(sv_merged, fasta + ".fai") 
+    sv_by_chrom | view
+    sv_b = sv_by_chrom.flatMap { it } 
+        | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension()] }
+
+    sv_b | view
+
+    graphtyper_sv(input.toList(), sv_b, fasta, fasta + ".fai")
 
        
 
