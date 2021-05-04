@@ -244,6 +244,7 @@ process svimmer {
 process graphtyper_sv {
     shell = ['/bin/bash', '-euo', 'pipefail']
     container = 'docker://brentp/manta-graphtyper:v0.0.4'
+    publishDir "results-rare-disease/svs-joint/", mode: 'copy'
 
     input:
         val(samples_bams_indexes)
@@ -272,7 +273,7 @@ process graphtyper_sv {
 
     ls graphtyper_sv_results/*/*.vcf.gz > file.list
     bcftools concat --threads 3 -O u -o - --file-list file.list \
-       | bcftools sort -m 2G -T $TMPDIR -o svs.${chrom}.bcf -O b -
+       | bcftools sort -m 2G -T \$TMPDIR -o svs.${chrom}.bcf -O b -
     bcftools index --threads 4 svs.${chrom}.bcf
     """
 }
@@ -306,9 +307,8 @@ workflow {
         | map { it -> it.find { it =~ /candidateSV.vcf.gz/ } } | collect
 
     sv_merged = svimmer(mr, fasta + ".fai")
-    sv_merged | view
 
-    graphtyper_sv(input.collect(), sv_merged, fasta, fasta + ".fai", "22")
+    graphtyper_sv(input.toList(), sv_merged, fasta, fasta + ".fai", "22")
 
        
 
