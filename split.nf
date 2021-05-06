@@ -21,3 +21,23 @@ process split {
     """
 
 }
+process split_vcf_lines {
+    container = 'docker://brentp/rare-disease:v0.0.3'
+    input: tuple(path(vcf), path(tbi))
+           path(fai)
+
+    output: file("*.split.t.vcf")
+
+    script:
+
+    """
+    set -euo pipefail
+    bcftools view --header-only $vcf > hdr
+    add_header () { { cat hdr; cat; } >  "$FILE"; }
+    export -f add_header
+
+    bcftools view --no-header $vcf | split -l 1000 -d --filter=add_header --additional-suffix .split.t.vcf - rd.
+    """
+
+}
+

@@ -46,8 +46,7 @@ echo "TMPDIR:\$TMPDIR"
     """
 }
 
-include { split } from "./split"
-include { split as split_sv } from "./split"
+include { split, split_vcf_lines } from "./split"
 
 process glnexus_anno_slivar {
     container = 'docker://brentp/rare-disease:v0.0.3'
@@ -169,7 +168,7 @@ wait
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/manta-graphtyper:v0.0.4'
+    container = 'docker://brentp/manta-graphtyper:v0.0.6'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
     input:
@@ -196,7 +195,7 @@ rm -r results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-graphtyper:v0.0.4'
+    container = 'docker://brentp/manta-graphtyper:v0.0.6'
     publishDir "results-rare-disease/manta-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -223,7 +222,7 @@ process svimmer {
 
 process graphtyper_sv {
     shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.0.4'
+    container = 'docker://brentp/manta-graphtyper:v0.0.6'
     publishDir "results-rare-disease/svs-joint/", mode: 'copy'
 
     input:
@@ -283,12 +282,12 @@ workflow {
     manta_results = manta(input, fasta, fasta + ".fai")
 
     mr = manta_results 
-        | map { it -> it.find { it =~ /candidateSV.vcf.gz/ } } | collect
+        | map { it -> it.find { it =~ /diploidSV.vcf.gz/ } } | collect
 
 
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    sv_by_chrom = split_sv(sv_merged, fasta + ".fai") 
+    sv_by_chrom = split_vcf_lines(sv_merged, fasta + ".fai") 
     sv_by_chrom | view
     sv_b = sv_by_chrom.flatMap { it } 
         | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension()] }
