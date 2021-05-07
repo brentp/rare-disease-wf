@@ -27,7 +27,7 @@ process split_by_size {
 
     input: path(fai)
            val(chunk_size)
-    output: file("*.split.vcf.gz")
+    output: stdout
 
     script:
     """
