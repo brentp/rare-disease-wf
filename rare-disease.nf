@@ -185,8 +185,12 @@ ls -lha
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
 D=\$TMPDIR
+# manta hits the ref a lot so copy to local tmp
+cp $fasta \$D/ref.fa
+cp $fai \$D/ref.fa.fai
+
 tabix cr.bed.gz
-configManta.py --bam $bam --referenceFasta $fasta --runDir \$D --callRegions cr.bed.gz
+configManta.py --bam $bam --referenceFasta \$D/ref.fa --runDir \$D --callRegions cr.bed.gz
 python2 \$D/runWorkflow.py -j ${task.cpus}
 mv \$D/results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
 mv \$D/results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
@@ -291,7 +295,6 @@ workflow {
     sv_merged = svimmer(mr, fasta + ".fai")
 
     regions = split_by_size(fasta + ".fai", 30000000) 
-    regions | view
 
     graphtyper_sv(input.toList(), regions, sv_merged, fasta, fasta + ".fai")
 
