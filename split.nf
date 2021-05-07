@@ -21,3 +21,16 @@ process split {
     """
 
 }
+
+process split_by_size {
+    container = 'docker://brentp/manta-graphtyper:v0.0.8'
+
+    input: path(fai)
+           val(chunk_size)
+    output: file("*.split.vcf.gz")
+
+    script:
+    """
+split_by_size.py $fai --chunk_size $chunk_size
+    """
+}
