@@ -7,7 +7,7 @@ ADD https://github.com/brentp/tiwih/releases/download/v0.0.1/tiwih /usr/local/bi
 
 # graphtyper and deps
 RUN apt-get update -qq \
-    && apt-get -y install --no-install-recommends build-essential bzip2 python2.7 git ca-certificates \
+    && apt-get -qy install --no-install-recommends build-essential bzip2 python2.7 git ca-certificates parallel \
     && chmod a+x /usr/local/bin/graphtyper \
     && chmod a+x /usr/local/bin/tiwih
 
