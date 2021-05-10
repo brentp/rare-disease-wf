@@ -205,19 +205,19 @@ process svimmer {
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
-        val(candidateSVs)
+        val(sample_vcfs)
         path(fai)
     output: tuple(file("${output_file}"), file("${output_file}.tbi"))
 
     script:
     output_file = "svimmer.merged.vcf.gz"
     file("$workDir/vcfs.list").withWriter { fh ->
-            candidateSVs.each { vcf ->
+            sample_vcfs.each { vcf ->
                 fh.write(vcf.toString()); fh.write("\n")
             }
     }
     """
-    cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index --threads 2 {}
+    cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index -f --threads 2 {}
     chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
     svimmer --max_distance 100 --max_size_difference 60 $workDir/vcfs.list \$chroms \
         | bgzip --threads 3 > $output_file
@@ -232,8 +232,8 @@ process graphtyper_sv {
 
 
     input:
+        val(region)
         val(samples_bams_indexes)
-        each(region)
         tuple(path(merged_sv_vcf), path(vcf_index))
         path(fasta)
         path(fai)
@@ -251,7 +251,7 @@ process graphtyper_sv {
     """
     bcftools index --threads 4 $merged_sv_vcf # TODO: pass in index
     graphtyper genotype_sv $fasta $merged_sv_vcf \
-        --sams=$workDir/bams.list.$chrom \
+        --sams=$workDir/bams.list.$reg \
         --threads=${task.cpus} \
         --force_use_input_ref_for_cram_reading \
         --region $region \
@@ -294,11 +294,11 @@ workflow {
 
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    regions = split_by_size(fasta + ".fai", 30000000) 
+    regions = split_by_size(fasta + ".fai", 15000000).splitText()
+       | map { it -> it.trim() }
 
-    graphtyper_sv(input.toList(), regions, sv_merged, fasta, fasta + ".fai")
+    graphtyper_sv(regions, input.toList(), sv_merged, fasta, fasta + ".fai")
 
-       
 
 
     
