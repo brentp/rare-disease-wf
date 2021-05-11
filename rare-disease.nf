@@ -164,11 +164,11 @@ wait
   """
 }
 
-
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/manta-graphtyper:v0.0.8'
+    container = 'docker://brentp/manta-graphtyper:v0.0.9'
+    //container = 'docker://brentp/manta-dev:latest'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
     input:
@@ -181,16 +181,20 @@ process manta {
 
     script:
     """
-ls -lha
+PATH=\$PATH:/usr/local/libexec
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
 D=\$TMPDIR
 # manta hits the ref a lot so copy to local tmp
 cp $fasta \$D/ref.fa
 cp $fai \$D/ref.fa.fai
+# NOTE: we are copying the bam to local TMP to save on network
+cp $bam \$D/${sample_name}.bam
+cp $index \$D/${sample_name}.bam.bai
+
 
 tabix cr.bed.gz
-configManta.py --bam $bam --referenceFasta \$D/ref.fa --runDir \$D --callRegions cr.bed.gz
+configManta.py --bam \$D/${sample_name}.bam --referenceFasta \$D/ref.fa --runDir \$D --callRegions cr.bed.gz
 python2 \$D/runWorkflow.py -j ${task.cpus}
 mv \$D/results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
 mv \$D/results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
@@ -227,9 +231,10 @@ process svimmer {
 
 process graphtyper_sv {
     shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.0.8'
-    publishDir "results-rare-disease/svs-joint/", mode: 'copy'
+    container = 'docker://brentp/manta-graphtyper:v0.0.9'
 
+    publishDir "results-rare-disease/svs-joint/", mode: 'copy'
+    // TODO: make task.cpus depend on n-samples as well
 
     input:
         val(region)
@@ -242,7 +247,9 @@ process graphtyper_sv {
 
 
     script:
-    reg = "${region}".replace(":", "-")
+    chrom_pos = "${region}".split(":")
+    pos = chrom_pos[1].split("-")
+    reg = "${chrom_pos[0]}_${pos[0].padLeft(12, '0')}_${pos[1].padLeft(12, '0')}"
     file("$workDir/bams.list.${reg}").withWriter { fh ->
             samples_bams_indexes.each { bi ->
                 fh.write(bi[1].toString()); fh.write("\n")
@@ -250,9 +257,12 @@ process graphtyper_sv {
     }
     """
     bcftools index --threads 4 $merged_sv_vcf # TODO: pass in index
+    cat $workDir/bams.list.$reg | parallel -j ${task.cpus} -k "tiwih meandepth --scale-by-read-length {1}" > $workDir/avg.cov.$reg
+
     graphtyper genotype_sv $fasta $merged_sv_vcf \
         --sams=$workDir/bams.list.$reg \
         --threads=${task.cpus} \
+        --avg_cov_by_readlen=$workDir/avg.cov.$reg \
         --force_use_input_ref_for_cram_reading \
         --region $region \
         --output=graphtyper_sv_results/
@@ -294,7 +304,7 @@ workflow {
 
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    regions = split_by_size(fasta + ".fai", 15000000).splitText()
+    regions = split_by_size(fasta + ".fai", 2000000).splitText()
        | map { it -> it.trim() }
 
     graphtyper_sv(regions, input.toList(), sv_merged, fasta, fasta + ".fai")
