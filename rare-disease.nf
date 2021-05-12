@@ -168,7 +168,6 @@ process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
     container = 'docker://brentp/manta-graphtyper:v0.0.9'
-    //container = 'docker://brentp/manta-dev:latest'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
     input:
@@ -181,7 +180,6 @@ process manta {
 
     script:
     """
-PATH=\$PATH:/usr/local/libexec
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
 D=\$TMPDIR
@@ -189,6 +187,7 @@ D=\$TMPDIR
 cp $fasta \$D/ref.fa
 cp $fai \$D/ref.fa.fai
 # NOTE: we are copying the bam to local TMP to save on network
+# TODO: make this depend on e.g param.copy_bam_local
 cp $bam \$D/${sample_name}.bam
 cp $index \$D/${sample_name}.bam.bai
 
@@ -204,7 +203,7 @@ rm -rf \$D/results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-graphtyper:v0.0.8'
+    container = 'docker://brentp/manta-graphtyper:v0.0.9'
     publishDir "results-rare-disease/manta-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -293,6 +292,11 @@ workflow {
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
     ]
+    samples = [
+     [ "hg002",
+       "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam"
+       "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam.bai"
+     ]]
     input = channel.fromList(samples)
 
 

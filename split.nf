@@ -23,7 +23,7 @@ process split {
 }
 
 process split_by_size {
-    container = 'docker://brentp/manta-graphtyper:v0.0.8'
+    container = 'docker://brentp/manta-graphtyper:v0.0.9'
 
     input: path(fai)
            val(chunk_size)
