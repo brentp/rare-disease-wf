@@ -1,3 +1,7 @@
+nextflow.enable.dsl=2
+
+include { split_by_size } from "./split"
+
 
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
@@ -5,13 +9,14 @@ process manta {
     container = 'docker://brentp/manta-graphtyper:v0.0.9'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
+
     input:
         tuple(val(sample_name), path(bam), path(index))
         path(fasta)
         path(fai)
 
     output:
-        path("*.vcf.gz")
+        tuple(file("${sample_name}.diploidSV.vcf.gz"), file("${sample_name}.meandepth.txt"))
 
     script:
     """
@@ -22,13 +27,14 @@ D=\$TMPDIR
 cp $fasta \$D/ref.fa
 cp $fai \$D/ref.fa.fai
 # NOTE: we are copying the bam to local TMP to save on network
-# TODO: make this depend on e.g param.copy_bam_local
+# TODO: make this depend on e.g 
 cp $bam \$D/${sample_name}.bam
 cp $index \$D/${sample_name}.bam.bai
 
+tiwih meandepth --scale-by-read-length \$D/${sample_name}.bam > ${sample_name}.meandepth.txt
 
 tabix cr.bed.gz
-configManta.py --bam \$D/${sample_name}.bam --referenceFasta \$D/ref.fa --runDir \$D --callRegions cr.bed.gz
+configManta.py --bam \$D/${sample_name}.bam --referenceFasta \$D/ref.fa --runDir \$D --callRegions cr.bed.gz --region 20
 python2 \$D/runWorkflow.py -j ${task.cpus}
 mv \$D/results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
 mv \$D/results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
@@ -64,6 +70,7 @@ process svimmer {
 }
 
 process graphtyper_sv {
+    errorStrategy 'terminate' // TODO: change after debugging is done
     shell = ['/bin/bash', '-euo', 'pipefail']
     container = 'docker://brentp/manta-graphtyper:v0.0.9'
 
@@ -76,6 +83,7 @@ process graphtyper_sv {
         tuple(path(merged_sv_vcf), path(vcf_index))
         path(fasta)
         path(fai)
+        val(mdps)
     output:
         tuple(file("genotyped-svs.${reg}.bcf"), file("genotyped-svs.${reg}.bcf.csi"))
 
@@ -84,19 +92,26 @@ process graphtyper_sv {
     chrom_pos = "${region}".split(":")
     pos = chrom_pos[1].split("-")
     reg = "${chrom_pos[0]}_${pos[0].padLeft(12, '0')}_${pos[1].padLeft(12, '0')}"
+    // TODO: how to move these outside of here so we just send in the files that we've written once.
     file("$workDir/bams.list.${reg}").withWriter { fh ->
             samples_bams_indexes.each { bi ->
                 fh.write(bi[1].toString()); fh.write("\n")
             }
     }
+
+    file("$workDir/covs.list.${reg}").withWriter { fh ->
+        mdps.each { f ->
+            fh.write(file(f).text)
+        }
+    }
+
     """
-    bcftools index --threads 4 $merged_sv_vcf # TODO: pass in index
-    cat $workDir/bams.list.$reg | parallel -j ${task.cpus} -k "tiwih meandepth --scale-by-read-length {1}" > $workDir/avg.cov.$reg
+    bcftools index $merged_sv_vcf # TODO: pass in index
 
     graphtyper genotype_sv $fasta $merged_sv_vcf \
         --sams=$workDir/bams.list.$reg \
         --threads=${task.cpus} \
-        --avg_cov_by_readlen=$workDir/avg.cov.$reg \
+        --avg_cov_by_readlen=$workDir/covs.list.${reg} \
         --force_use_input_ref_for_cram_reading \
         --region $region \
         --output=graphtyper_sv_results/
@@ -127,15 +142,14 @@ workflow {
 
     manta_results = manta(input, fasta, fasta + ".fai")
 
-    mr = manta_results 
-        | map { it -> it.find { it =~ /diploidSV.vcf.gz/ } } | collect
-
+    mr = manta_results | map { it -> it[0] }  | collect
+    mds = manta_results | map { it -> it[1] }  | collect
 
     sv_merged = svimmer(mr, fasta + ".fai")
 
     regions = split_by_size(fasta + ".fai", 2000000).splitText()
        | map { it -> it.trim() }
 
-    graphtyper_sv(regions, input.toList(), sv_merged, fasta, fasta + ".fai")
+    graphtyper_sv(regions, input.toList(), sv_merged, fasta, fasta + ".fai", mds)
 
 }
