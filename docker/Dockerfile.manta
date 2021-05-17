@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
 ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
-ADD https://github.com/brentp/tiwih/releases/download/v0.0.2/tiwih /usr/local/bin
+ADD https://github.com/brentp/tiwih/releases/download/v0.0.3/tiwih /usr/local/bin
 
 # graphtyper and deps
 RUN apt-get update -qq \
