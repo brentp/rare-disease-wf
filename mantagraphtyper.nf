@@ -7,7 +7,7 @@ process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
     stageInMode "copy"
 
-    container = 'docker://brentp/manta-graphtyper:v0.1.1'
+    container = 'docker://brentp/manta-graphtyper:v0.1.8'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -28,6 +28,7 @@ tiwih meandepth --scale-by-read-length $bam > ${sample_name}.meandepth.txt
 tabix cr.bed.gz
 configManta.py --bam ${bam} --referenceFasta $fasta --runDir . --callRegions cr.bed.gz
 python2 ./runWorkflow.py -j ${task.cpus}
+# TODO: run convert inversions.
 mv results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
 mv results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
 mv results/variants/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
@@ -36,7 +37,7 @@ rm -rf results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-graphtyper:v0.1.1'
+    container = 'docker://brentp/manta-graphtyper:v0.1.8'
     publishDir "results-rare-disease/manta-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -57,7 +58,7 @@ process svimmer {
     chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
     # NOTE: removing BNDs
     svimmer --max_distance 100 --max_size_difference 60 $workDir/vcfs.list \$chroms \
-        | bcftools view -e "SVTYPE='BND'" -O z -o $output_file
+        | tiwih setsvalt --drop-bnds /dev/stdin  -o $output_file
     tabix $output_file
     """
 }
@@ -65,7 +66,7 @@ process svimmer {
 process graphtyper_sv {
     errorStrategy 'terminate' // TODO: change after debugging is done
     shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.1.1'
+    container = 'docker://brentp/manta-graphtyper:v0.1.8'
 
     publishDir "results-rare-disease/svs-joint/", mode: 'copy'
     // TODO: make task.cpus depend on n-samples as well
@@ -118,7 +119,7 @@ process graphtyper_sv {
 process paragraph {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-graphtyper:v0.1.6'
+  container = 'docker://brentp/manta-graphtyper:v0.1.8'
 
   publishDir "results-rare-disease/svs-paragraph/", mode: 'copy'
 
@@ -155,7 +156,7 @@ mv t/genotypes.vcf.gz \${samplename}.paragraph.vcf.gz
 process merge_svs {
     errorStrategy 'terminate' 
     shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.1.1'
+    container = 'docker://brentp/manta-graphtyper:v0.1.8'
 
     publishDir "results-rare-disease/", mode: 'copy'
     // TODO: make task.cpus depend on n-samples as well
