@@ -143,6 +143,7 @@ multigrmpy.py -i $site_vcf \
     -m sample.manifest \
     -r $fasta \
     -o t \
+    -t ${task.cpus} \
     -M $M
 
 mv t/genotypes.vcf.gz \${samplename}.paragraph.vcf.gz
