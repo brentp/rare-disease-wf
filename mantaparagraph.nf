@@ -7,7 +7,7 @@ process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
     stageInMode "copy"
 
-    container = 'docker://brentp/manta-graphtyper:v0.1.8'
+    container = 'docker://brentp/manta-paragraph:v0.1.8'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -28,8 +28,10 @@ tiwih meandepth --scale-by-read-length $bam > ${sample_name}.meandepth.txt
 tabix cr.bed.gz
 configManta.py --bam ${bam} --referenceFasta $fasta --runDir . --callRegions cr.bed.gz
 python2 ./runWorkflow.py -j ${task.cpus}
-# TODO: run convert inversions.
-mv results/variants/diploidSV.vcf.gz ${sample_name}.diploidSV.vcf.gz
+
+convertInversion.py \$(which samtools) $fasta results/variants/diploidSV.vcf.gz \
+    | bcftools view -O z -o ${sample_name}.diploidSV.vcf.gz
+
 mv results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
 mv results/variants/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
 rm -rf results/
@@ -37,7 +39,7 @@ rm -rf results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-graphtyper:v0.1.8'
+    container = 'docker://brentp/manta-paragraph:v0.1.8'
     publishDir "results-rare-disease/manta-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -63,63 +65,10 @@ process svimmer {
     """
 }
 
-process graphtyper_sv {
-    errorStrategy 'terminate' // TODO: change after debugging is done
-    shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.1.8'
-
-    publishDir "results-rare-disease/svs-joint/", mode: 'copy'
-    // TODO: make task.cpus depend on n-samples as well
-
-    input:
-        val(region)
-        val(samples_bams_indexes)
-        tuple(path(merged_sv_vcf), path(vcf_index))
-        path(fasta)
-        path(fai)
-        val(mdps)
-    output:
-        tuple(file("genotyped-svs.${reg}.bcf"), file("genotyped-svs.${reg}.bcf.csi"))
-
-
-    script:
-    chrom_pos = "${region}".split(":")
-    pos = chrom_pos[1].split("-")
-    reg = "${chrom_pos[0]}_${pos[0].padLeft(12, '0')}_${pos[1].padLeft(12, '0')}"
-    // TODO: how to move these outside of here so we just send in the files that we've written once.
-    file("$workDir/bams.list.${reg}").withWriter { fh ->
-            samples_bams_indexes.each { bi ->
-                fh.write(bi[1].toString()); fh.write("\n")
-            }
-    }
-
-    file("$workDir/covs.list.${reg}").withWriter { fh ->
-        mdps.each { f ->
-            fh.write(file(f).text)
-        }
-    }
-
-    """
-    bcftools index $merged_sv_vcf # TODO: pass in index
-
-    graphtyper genotype_sv $fasta $merged_sv_vcf \
-        --sams=$workDir/bams.list.$reg \
-        --threads=${task.cpus} \
-        --avg_cov_by_readlen=$workDir/covs.list.${reg} \
-        --force_use_input_ref_for_cram_reading \
-        --region $region \
-        --output=graphtyper_sv_results/
-
-    ls graphtyper_sv_results/*/*.vcf.gz > file.list
-    bcftools concat --threads 3 -O u -o - --file-list file.list \
-       | bcftools sort -m 2G -T \$TMPDIR -o genotyped-svs.${reg}.bcf -O b -
-    bcftools index --threads 4 genotyped-svs.${reg}.bcf
-    """
-}
 process paragraph {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-graphtyper:v0.1.8'
+  container = 'docker://brentp/manta-paragraph:v0.1.8'
 
   publishDir "results-rare-disease/svs-paragraph/", mode: 'copy'
 
@@ -137,7 +86,7 @@ samplename=$sample
 dp=\$(tiwih meandepth $bam)
 echo "id\tpath\tdepth\tread length" > sample.manifest
 echo "$sample\t$bam\t\$dp\t150" >> sample.manifest
-M=\$((dp * 7))
+M=\$((dp * 5))
 cat sample.manifest
 
 multigrmpy.py -i $site_vcf \
@@ -151,30 +100,6 @@ mv t/genotypes.vcf.gz \${samplename}.paragraph.vcf.gz
 
   """
 
-}
-
-process merge_svs {
-    errorStrategy 'terminate' 
-    shell = ['/bin/bash', '-euo', 'pipefail']
-    container = 'docker://brentp/manta-graphtyper:v0.1.8'
-
-    publishDir "results-rare-disease/", mode: 'copy'
-    // TODO: make task.cpus depend on n-samples as well
-
-    input: path(vcfs)
-           path(fasta)
-           path(fai)
-    output: tuple(file("${output_file}"), file("${output_file}.csi"))
-
-    script:
-    output_file = "rare-disease.manta-graphtyper.bcf"
-    """
-      ls *.bcf | sort -V > file.list
-      bcftools concat --threads 2 --naive -O b -f file.list \
-          | bcftools view --threads 2 -i "SVMODEL='AGGREGATED'" -O b \
-          | tiwih setref -u -o $output_file /dev/stdin $fasta
-      bcftools index --threads 2 $output_file
-    """
 }
 
 workflow {
@@ -202,16 +127,5 @@ workflow {
     sv_merged = svimmer(mr, fasta + ".fai")
 
     paragraph(sv_merged, input, fasta, fasta + ".fai")
-
-
-
-    /*
-    regions = split_by_size(fasta + ".fai", 2000000).splitText()
-       | map { it -> it.trim() }
-
-    gt_vcfs = graphtyper_sv(regions, input.toList(), sv_merged, fasta, fasta + ".fai", mds)
-       | map { it -> file(it[0]) }  | collect
-    merge_svs(gt_vcfs, fasta, fasta + ".fai")
-    */
 
 }
