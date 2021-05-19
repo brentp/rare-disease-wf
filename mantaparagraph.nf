@@ -128,7 +128,8 @@ process square {
   }
   output_file = "mantaparagraph.vcf.gz"
   """
-  bcftools merge -m none --threads 3 -O z -o $output_file --file-list $workDir/joint.vcfs.list
+  bcftools merge -m none --threads 3 -O u --file-list $workDir/joint.vcfs.list \
+    | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O z -o $output_file
   """
 }
 
