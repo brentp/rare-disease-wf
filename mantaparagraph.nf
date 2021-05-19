@@ -55,14 +55,23 @@ process svimmer {
                 fh.write(vcf.toString()); fh.write("\n")
             }
     }
-    """
-    cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index -f --threads 2 {}
-    chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
-    # NOTE: removing BNDs
-    svimmer --max_distance 100 --max_size_difference 60 $workDir/vcfs.list \$chroms \
-        | tiwih setsvalt --drop-bnds /dev/stdin  -o $output_file
-    tabix $output_file
-    """
+    // we don't merge if we only have a single sample.
+    if(sample_vcfs.size() > 1) {
+        """
+        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index -f --threads 2 {}
+        chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
+        # NOTE: removing BNDs
+        svimmer --max_distance 30 --max_size_difference 50 $workDir/vcfs.list \$chroms \
+            | tiwih setsvalt --drop-bnds /dev/stdin  -o $output_file
+        tabix $output_file
+        """
+    } else {
+        """
+        cp ${sample_vcfs[0]} $output_file
+        tabix $output_file
+        """
+    }
+
 }
 
 process paragraph {
@@ -102,6 +111,27 @@ mv t/genotypes.vcf.gz \${samplename}.paragraph.vcf.gz
 
 }
 
+process square {
+  errorStrategy 'terminate' // TODO: change after debugging is done
+  shell = ['/bin/bash', '-euo', 'pipefail']
+  container = 'docker://brentp/manta-paragraph:v0.1.8'
+  publishDir "results-rare-disease/", mode: 'copy'
+
+  input: val(sample_vcfs)
+  output: output: tuple(file("${output_file}"), file("${output_file}.csi"))
+
+  script:
+  file("$workDir/joint.vcfs.list").withWriter { fh ->
+        sample_vcfs.each { vcf ->
+            fh.write(vcf.toString()); fh.write("\n")
+        }
+  }
+  output_file = "mantaparagraph.vcf.gz"
+  """
+  bcftools merge -m none --threads 3 -O z -o $output_file --file-list $workDir/joint.vcfs.list
+  """
+}
+
 workflow {
 
     fasta = "/hpc/cog_bioinf/GENOMES.old/NF-IAP-resources//GRCh37/Sequence/genome.fa"
@@ -127,5 +157,7 @@ workflow {
     sv_merged = svimmer(mr, fasta + ".fai")
 
     paragraph(sv_merged, input, fasta, fasta + ".fai")
+
+    square(paragraph.out) | view
 
 }
