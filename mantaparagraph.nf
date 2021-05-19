@@ -159,6 +159,6 @@ workflow {
 
     paragraph(sv_merged, input, fasta, fasta + ".fai")
 
-    square(paragraph.out) | view
+    square(paragraph.out.collect()) | view
 
 }
