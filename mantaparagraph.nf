@@ -87,11 +87,12 @@ process paragraph {
      path(fasta)
      path(fai)
 
-  output: path("*.paragraph.vcf.gz")
+  output: tuple(path("${output_file}"), path("${output_file}.csi"))
 
   script:
+  output_file = "${sample}.paragraph.vcf.gz"
+
   """
-samplename=$sample
 dp=\$(tiwih meandepth $bam)
 echo "id\tpath\tdepth\tread length" > sample.manifest
 echo "$sample\t$bam\t\$dp\t150" >> sample.manifest
@@ -105,7 +106,8 @@ multigrmpy.py -i $site_vcf \
     -t ${task.cpus} \
     -M \$M
 
-mv t/genotypes.vcf.gz \${samplename}.paragraph.vcf.gz
+mv t/genotypes.vcf.gz $output_file
+bcftools index --threads 3 $output_file
 
   """
 
@@ -118,18 +120,19 @@ process square {
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
-  output: output: tuple(file("${output_file}"), file("${output_file}.csi"))
+  output: tuple(file("${output_file}"), file("${output_file}.csi"))
 
   script:
   file("$workDir/joint.vcfs.list").withWriter { fh ->
         sample_vcfs.each { vcf ->
-            fh.write(vcf.toString()); fh.write("\n")
+            fh.write(vcf[0].toString()); fh.write("\n")
         }
   }
   output_file = "mantaparagraph.vcf.gz"
   """
   bcftools merge -m none --threads 3 -O u --file-list $workDir/joint.vcfs.list \
     | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O z -o $output_file
+  bcftools index --threads 3 $output_file
   """
 }
 
@@ -157,8 +160,8 @@ workflow {
 
     sv_merged = svimmer(mr, fasta + ".fai")
 
-    paragraph(sv_merged, input, fasta, fasta + ".fai")
+    genotyped = paragraph(sv_merged, input, fasta, fasta + ".fai")
 
-    square(paragraph.out.collect()) | view
+    square(genotyped.toList()) | view
 
 }

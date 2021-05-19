@@ -23,7 +23,7 @@ process split {
 }
 
 process split_by_size {
-    container = 'docker://brentp/manta-graphtyper:v0.0.9'
+    container = 'docker://brentp/manta-paragraph:v0.1.0'
 
     input: path(fai)
            val(chunk_size)
@@ -31,6 +31,6 @@ process split_by_size {
 
     script:
     """
-split_by_size.py $fai --chunk_size $chunk_size
+tiwih fairegions $fai --region_size $chunk_size
     """
 }
