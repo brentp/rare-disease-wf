@@ -100,7 +100,7 @@ process slivar_rare_disease {
          path(ped)
          path(gnomad_zip)
 
-  output: tuple(path(slivar_bcf), path(slivar_ch_bcf), path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv))
+  output: tuple(path(slivar_bcf), path(slivar_ch_bcf), path(slivar_bcf_csi), path(slivar_ch_bcf_csi), path(slivar_tsv), path(slivar_counts))
 
   script:
   slivar_bcf = bcf.getBaseName() + ".slivar.bcf"
@@ -108,11 +108,13 @@ process slivar_rare_disease {
   slivar_bcf_csi = slivar_bcf + ".csi"
   slivar_ch_bcf_csi = slivar_ch_bcf + ".csi"
   slivar_tsv = bcf.getBaseName() + ".slivar.tsv"
+  slivar_counts = bcf.getBaseName() + ".slivar.counts.txt"
 
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
 ls -lh $bcf
 # TODO: export SLIVAR_SUMMARY_FILE=slivar_summary
+export SLIVAR_SUMMARY_FILE=${slivar_counts}.main
 slivar expr --vcf $bcf \
     --ped $ped \
     -o $slivar_bcf \
@@ -129,11 +131,13 @@ slivar expr --vcf $bcf \
 
 bcftools index --threads 3 $slivar_bcf &
 
+export SLIVAR_SUMMARY_FILE=${slivar_counts}.ch
 slivar compound-hets -v $slivar_bcf \
     --sample-field comphet_side --sample-field denovo -p $ped \
   | bcftools view -O b -o $slivar_ch_bcf
 
 bcftools index --threads 3 $slivar_ch_bcf &
+tiwih combine_slivar_counts ${slivar_counts}.main ${slivar_counts}.ch > $slivar_counts
 
 slivar tsv \
   -s denovo \
@@ -159,6 +163,7 @@ slivar tsv \
   -p $ped \
   $slivar_ch_bcf \
   | { grep -v ^# || true; } >> $slivar_tsv # || true avoids error if there are no compound hets.
+
 
 wait
   """

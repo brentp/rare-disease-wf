@@ -1,9 +1,10 @@
 FROM ubuntu:18.04
 MAINTAINER brentp
 
-ARG slivar_version=v0.2.1
+ARG slivar_version=v0.2.2
 ARG htslib_version=1.12
 ARG glnexus_version=v1.3.1
+ARG tiwih_version=v0.0.5
 
 RUN apt-get -qq update && \
      apt-get -qq install -y --no-install-recommends --no-install-suggests \
@@ -52,7 +53,10 @@ RUN cd / && \
 
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
-RUN chmod +x /usr/local/bin/slivar && chmod a+r /opt/slivar/slivar-functions.js
+ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin
+
+RUN chmod +x /usr/local/bin/slivar && chmod a+r /opt/slivar/slivar-functions.js \
+    && chmod +x /usr/local/bin/tiwih
 
 # DATA files for slivar tsv
 RUN wget -qO - https://storage.googleapis.com/gnomad-public/release/2.1.1/constraint/gnomad.v2.1.1.lof_metrics.by_gene.txt.bgz \
