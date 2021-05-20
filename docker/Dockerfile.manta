@@ -2,14 +2,14 @@ FROM ubuntu:16.04
 
 ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
-ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
+#ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
 ADD https://github.com/brentp/tiwih/releases/download/v0.0.4/tiwih /usr/local/bin
 
 # graphtyper and deps
 RUN apt-get update -qq \
     && apt-get -qy install --no-install-recommends build-essential bzip2 python2.7 git ca-certificates parallel \
-    && chmod a+x /usr/local/bin/graphtyper \
     && chmod a+x /usr/local/bin/tiwih
+# && chmod a+x /usr/local/bin/graphtyper \
 
 
 WORKDIR /opt
@@ -34,4 +34,7 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
 	    curl -SsLo $f https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcfgraph/vcfgraph.py; \
 	    chmod a+x $f; \
+	    d=$(dirname $(dirname $f)); \
+	    np="$d/vcf2paragraph/__init__.py" ; \
+            curl -SsLo $np https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcf2paragraph/__init__.py; \
     done
