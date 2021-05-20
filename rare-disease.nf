@@ -49,7 +49,7 @@ echo "TMPDIR:\$TMPDIR"
 include { split; split_by_size } from "./split"
 
 process glnexus_anno_slivar {
-    container = 'docker://brentp/rare-disease:v0.0.3'
+    container = 'docker://brentp/rare-disease:v0.0.4'
     shell = ['/bin/bash', '-euo', 'pipefail']
     publishDir "results-rare-disease/joint-by-chrom/", mode: 'copy'
 
@@ -92,7 +92,7 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.0.3'
+  container = 'docker://brentp/rare-disease:v0.0.4'
   publishDir "results-rare-disease/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -189,16 +189,17 @@ workflow {
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
     ]
-    samples = [
-     [ "hg002",
-       "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam"
-       "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam.bai"
-     ]]
+    //samples = [
+    // [ "hg002",
+    //   "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam"
+    //   "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam.bai"
+    // ]]
+
+
     input = channel.fromList(samples)
 
-
     gvcfs_tbis = DeepVariant(input, fasta, fasta + ".fai") 
-      something.$chrom.split.gvcf.gz
+    //  something.$chrom.split.gvcf.gz
     sp = split(gvcfs_tbis, fasta + ".fai")
     gr_by_chrom = sp.flatMap { it }
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
@@ -206,7 +207,7 @@ workflow {
 
     joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
-    //jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
+    jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
     slivar_rare_disease(jbf, params.ped, slivar_zip) // | view
     // TODO merge and fix TSV
