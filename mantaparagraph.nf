@@ -5,7 +5,6 @@ include { split_by_size } from "./split"
 
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
-    stageInMode "copy"
 
     container = 'docker://brentp/manta-paragraph:v0.1.8'
     publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
@@ -60,14 +59,14 @@ process svimmer {
         """
         cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index -f --threads 2 {}
         chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
-        # NOTE: removing BNDs
+        # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
         svimmer --max_distance 30 --max_size_difference 50 $workDir/vcfs.list \$chroms \
             | tiwih setsvalt --drop-bnds /dev/stdin  -o $output_file
         tabix $output_file
         """
     } else {
         """
-        cp ${sample_vcfs[0]} $output_file
+        tiwih setsvalt --drop-bnds ${sample_vcfs[0]} -o $output_file
         tabix $output_file
         """
     }
@@ -77,7 +76,7 @@ process svimmer {
 process paragraph {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.1.8'
+  container = 'docker://brentp/manta-paragraph:v0.2.3'
 
   publishDir "results-rare-disease/svs-paragraph/", mode: 'copy'
 
@@ -150,6 +149,11 @@ workflow {
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
     ]
+
+    fasta = "/data/human/g1k_v37_decoy.fa"
+    samples = [
+      ["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai"]]
+
     input = channel.fromList(samples)
 
 
