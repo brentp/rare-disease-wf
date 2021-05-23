@@ -38,7 +38,7 @@ echo "TMPDIR:\$TMPDIR"
     --model_type=${params.model_type} \
     --output_gvcf=${sample_id}.gvcf.gz \
     --output_vcf=${sample_id}.vcf.gz \
-    --num_shards=${params.cpus} \
+    --num_shards=${task.cpus} \
     --ref=$fasta
  
 #rm -f ${sample_id}.bam
