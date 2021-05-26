@@ -4,7 +4,6 @@ process DeepVariant {
     label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
     publishDir "results-rare-disease/gvcfs/", mode: 'copy'
-    // container = '/hpc/compgen/users/bpedersen/deepvariant_1_1_0.sif'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -92,7 +91,7 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.0.4'
+  container = 'docker://brentp/rare-disease:v0.0.5'
   publishDir "results-rare-disease/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -112,8 +111,6 @@ process slivar_rare_disease {
 
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
-ls -lh $bcf
-# TODO: export SLIVAR_SUMMARY_FILE=slivar_summary
 export SLIVAR_SUMMARY_FILE=${slivar_counts}.main
 slivar expr --vcf $bcf \
     --ped $ped \
@@ -137,6 +134,7 @@ slivar compound-hets -v $slivar_bcf \
   | bcftools view -O b -o $slivar_ch_bcf
 
 bcftools index --threads 3 $slivar_ch_bcf &
+
 tiwih combine_slivar_counts ${slivar_counts}.main ${slivar_counts}.ch > $slivar_counts
 
 slivar tsv \
@@ -169,6 +167,38 @@ wait
   """
 }
 
+process slivar_merge_tsvs {
+  container = 'docker://brentp/rare-disease:v0.0.6'
+  publishDir "results-rare-disease/", mode: 'copy'
+  shell = ['/bin/bash', '-euo', 'pipefail']
+
+  input: path(tsvs)
+
+  output: path("${output_file}")
+
+  script:
+    output_file = "slivar.candidates.tsv"
+    """
+# get header from first file and drop it from other files
+    awk 'NR == FNR || FNR > 1' $tsvs > ${output_file}
+    """
+}
+
+process slivar_sum_counts {
+  container = 'docker://brentp/rare-disease:v0.0.6'
+  publishDir "results-rare-disease/", mode: 'copy'
+  shell = ['/bin/bash', '-euo', 'pipefail']
+
+  input: path(counts)
+
+  output: path("${output_file}")
+
+  script:
+    output_file = "slivar.counts.txt"
+    """
+    tiwih sum_slivar_counts -z $counts > ${output_file}
+    """
+}
 
 
 workflow {
@@ -209,7 +239,14 @@ workflow {
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
     jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
-    slivar_rare_disease(jbf, params.ped, slivar_zip) // | view
-    // TODO merge and fix TSV
+    slivar_results = slivar_rare_disease(jbf, params.ped, slivar_zip)
+
+    slivar_tsvs = slivar_results | map { it -> it[4] } | collect
+    slivar_counts = slivar_results | map { it -> it[5] } | collect
+
+    slivar_tsvs | view
+
+    slivar_merge_tsvs(slivar_tsvs)
+    slivar_sum_counts(slivar_counts)
 
 }
