@@ -19,8 +19,8 @@ nextflow run -resume -profile slurm rare-disease.nf \
     --ped $pedigree_file \       # see: https://gatk.broadinstitute.org/hc/en-us/articles/360035531972-PED-Pedigree-format
     --fasta $reference_fasta \
     --gff $gff \                   # e.g. from: ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
-    --slivarzip gnomad.hg38.zip    # from: 
-    --cohort_name my_rare_disease  # https://github.com/brentp/slivar#gnotation-files
+    --slivarzip gnomad.hg38.zip    # from: https://github.com/brentp/slivar#gnotation-files
+    --cohort_name my_rare_disease
 ```
 
 This does:
