@@ -216,6 +216,7 @@ Required Arguments:
    
    --ped             A pedigree (or .fam) file with columns of:
                          $family_id\t$sample_id\t$paternal_id\t$maternal_id\t$sex\t$phenotype
+                     see: https://gatk.broadinstitute.org/hc/en-us/articles/360035531972-PED-Pedigree-format
 
 
    --fasta           Path to reference fasta 

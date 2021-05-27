@@ -8,15 +8,22 @@ This is a necessary first step with the following limitations:
  3. it assumes a high-quality, jointly-called VCF is already available
  4. it leaves the analyst with the chore of getting IGV set up, and browsing each candidate for each family.
 
-The aim of this project is a more complete workflow that can be run something like:
+
+## Quickstart 
+This project **currently** has workflow that can be run as:
 
 ```
-nextflow run rare-disease.nf --ped $ped \
-	--cohort cakut-cohort --fasta $fasta \
-	--alignment-list cram-paths.txt
+nextflow run -resume -profile slurm rare-disease.nf \
+    -config nextflow.config \    # a staring config is included in this repo. adjust from there.
+    --xams "/path/to/*/*.cram" \ # NOTE that this is a string glob
+    --ped $pedigree_file \       # see: https://gatk.broadinstitute.org/hc/en-us/articles/360035531972-PED-Pedigree-format
+    --fasta $reference_fasta \
+    --gff $gff \                   # e.g. from: ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+    --slivarzip gnomad.hg38.zip    # from: 
+    --cohort_name my_rare_disease  # https://github.com/brentp/slivar#gnotation-files
 ```
 
-This will:
+This does:
 
  1. Run [DeepVariant](https://github.com/google/deepvariant) and [GLNexus](https://github.com/dnanexus-rnd/GLnexus) (we have shown these tools to give higher quality results for trios) in an efficient nextflow workflow that can be easily run in the cloud or on a cluster.
  1. Decompose and normalize variants.
@@ -25,6 +32,10 @@ This will:
  1. Annotate with gene-based annotations:
     - clinvar-gene-phenotype
     - loss-of-function intolerance
+ 1. Output high-quality calls from [slivar](https://github.com/brentp/slivar) for recessive, dominant, x-linked, compound-het and other
+    inheritance modes.
+
+This will:
  1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
  1. Provide pre-made IGV outputs for each candidate.
  1. Output high-quality SVs (using manta-> graphtyper)
