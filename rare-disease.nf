@@ -22,7 +22,7 @@ process DeepVariant {
     """
 # faster to convert cram to bam, but easier to use original DV image.
 #if [[ "$is_cram" == "true" ]]; then
-#    samtools view --write-index --threads ${params.cpus} -bT $fasta -o ${sample_id}.bam $aln_file
+#    samtools view --write-index --threads ${task.cpus} -bT $fasta -o ${sample_id}.bam $aln_file
 #else
 #    ln -sf $aln_file ${sample_id}.bam
 #    ln -sf $aln_index ${sample_id}.bam.bai
@@ -200,33 +200,83 @@ process slivar_sum_counts {
     """
 }
 
+// largely cribbed from Joe: https://github.com/brwnj/smoove-nf/blob/master/main.nf
+params.help = false
+if (params.help) {
+    log.info """
+----------------------------------------------------------------
+rare-disease-nf
+
+Required Arguments:
+-------------------
+
+   --xams            A glob or string with **comma separatd paths to
+                     bams or crams. Sample names should match those in the
+                     --ped argument
+   
+   --ped             A pedigree (or .fam) file with columns of:
+                         $family_id\t$sample_id\t$paternal_id\t$maternal_id\t$sex\t$phenotype
+
+
+   --fasta           Path to reference fasta 
+
+   --modeltype       "WGS" or "WES" (default is WGS)
+
+   --gff             Path to gff3 file for annotation with bcftools csq.
+                     can be downloaded from Ensembl. e.g. for human:
+                     ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+                     ftp://ftp.ensembl.org/pub/grch37/release-84/gff3/homo_sapiens/
+  
+   --slivarzip       Path to gnotate zip file for slivar see: https://github.com/brentp/slivar#gnotation-files
+                     likely:
+                      https://slivar.s3.amazonaws.com/gnomad.hg38.genomes.v3.fix.zip
+                     or:
+                      https://s3.amazonaws.com/slivar/gnomad.hg37.zip
+    """
+}
+params.xams = false
+if(!params.xams) { exit 1, "--xams is required" }
+params.ped = false
+if(!params.ped) { exit 1, "--ped is required" }
+params.fasta = false
+if(!params.fasta) { exit 1, "--fasta is required" }
+params.gff = false
+if(!params.gff) { exit 1, "--gff is required" }
+params.slivarzip = false
+if(!params.gff) { exit 1, "--slivarzip is required" }
+params.model_type = "WGS"
+if(!params.model_type) { exit 1, "--modeltype ('WGS' or 'WES') is required" }
+
+def find_index(xam_path) {
+    base = "${xam_path}".take("${xam_path}".lastIndexOf('.'))
+    isbam = xam_path.name.endsWith(".bam")
+    if(isbam) {
+        if(file(base + ".bai").exists()){
+            return file(base + ".bai")
+        }
+        // .bam.bai
+        base = xam_path.name + ".bai"
+        if(file(base + ".bai").exists()){
+            return file(base + ".bai")
+        }
+        return "INDEX NOT FOUND"
+    }
+    if(file(base + ".crai").exists()){
+        return file(base + ".crai")
+    }
+    // .cram.bai
+    base = xam_path.name + ".crai"
+    if(file(base + ".crai").exists()){
+        return file(base + ".crai")
+    }
+    return "CRAM INDEX NOT FOUND"
+}
+
 
 workflow {
 
-  //  split(["/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz", "/data/human/HG002_SVs_Tier1_v0.6.DEL.vcf.gz.tbi", "/data/human/g1k_v37_decoy.fa.fai"]) | view
-   // DeepVariant(["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai", "/data/human/g1k_v37_decoy.fa", "/data/human/g1k_v37_decoy.fa.fai"]) | view
-    fasta = "/hpc/cog_bioinf/GENOMES.old/NF-IAP-resources//GRCh37/Sequence/genome.fa"
-    gff = "/home/cog/bpedersen/src/rare-disease-wf/Homo_sapiens.GRCh37.87.chr.gff3.gz"
-    slivar_zip = "/hpc/compgen/users/bpedersen/gnomad.hg37.zip"
-    samples = [
-        ["150424",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bam",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150424_dedup.bai"],
-        ["150423",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bam",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150423_dedup.bai"],
-        ["150426",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bam",
-        "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
-    ]
-    //samples = [
-    // [ "hg002",
-    //   "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam"
-    //   "/hpc/compgen/projects/googling-the-cancer-genome/sv-channels/analysis/NA24385/HG002.hs37d5.2x250.bam.bai"
-    // ]]
-
-
-    input = channel.fromList(samples)
+    input = channel.fromPath(params.xams, checkIfExists: true)
+                  | map { it -> tuple(it.baseName, it, find_index(it)) }
 
     gvcfs_tbis = DeepVariant(input, fasta, fasta + ".fai") 
     //  something.$chrom.split.gvcf.gz
