@@ -6,8 +6,8 @@ include { split_by_size } from "./split"
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/manta-paragraph:v0.1.8'
-    publishDir "results-rare-disease/manta-vcfs/", mode: 'copy'
+    container = 'docker://brentp/manta-paragraph:v0.2.3'
+    publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
@@ -38,8 +38,8 @@ rm -rf results/
 }
 
 process svimmer {
-    container = 'docker://brentp/manta-paragraph:v0.1.8'
-    publishDir "results-rare-disease/manta-merged/", mode: 'copy'
+    container = 'docker://brentp/manta-paragraph:v0.2.3'
+    publishDir "results-rare-disease/manta-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
@@ -78,7 +78,7 @@ process paragraph {
   shell = ['/bin/bash', '-euo', 'pipefail']
   container = 'docker://brentp/manta-paragraph:v0.2.3'
 
-  publishDir "results-rare-disease/svs-paragraph/", mode: 'copy'
+  publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
   input:
      tuple(path(site_vcf), path(site_vcf_index))
@@ -115,7 +115,7 @@ bcftools index --threads 3 $output_file
 process square {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.1.8'
+  container = 'docker://brentp/manta-paragraph:v0.2.3'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
@@ -150,9 +150,9 @@ workflow {
         "/hpc/cog_bioinf/ubec/useq/processed_data/external/REN5302/REN5302_5/BAMS/150426_dedup.bai"]
     ]
 
-    fasta = "/data/human/g1k_v37_decoy.fa"
-    samples = [
-      ["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai"]]
+    //fasta = "/data/human/g1k_v37_decoy.fa"
+    //samples = [
+    //  ["HG002", "/data/human/hg002.cram", "/data/human/hg002.cram.crai"]]
 
     input = channel.fromList(samples)
 
