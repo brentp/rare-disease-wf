@@ -233,6 +233,12 @@ Required Arguments:
                       https://slivar.s3.amazonaws.com/gnomad.hg38.genomes.v3.fix.zip
                      or:
                       https://s3.amazonaws.com/slivar/gnomad.hg37.zip
+
+Optional Arguments:
+-------------------
+
+   --cohort_name     optional name for the cohort (default: "rare-disease")
+
     """
 }
 params.xams = false
@@ -244,9 +250,10 @@ if(!params.fasta) { exit 1, "--fasta is required" }
 params.gff = false
 if(!params.gff) { exit 1, "--gff is required" }
 params.slivarzip = false
-if(!params.gff) { exit 1, "--slivarzip is required" }
+if(!params.slivarzip) { exit 1, "--slivarzip is required" }
 params.model_type = "WGS"
-if(!params.model_type) { exit 1, "--modeltype ('WGS' or 'WES') is required" }
+if(!params.model_type) { exit 1, "--model_type ('WGS' or 'WES') is required" }
+params.cohort_name = "rare-disease"
 
 def find_index(xam_path) {
     base = "${xam_path}".take("${xam_path}".lastIndexOf('.'))
@@ -279,18 +286,18 @@ workflow {
     input = channel.fromPath(params.xams, checkIfExists: true)
                   | map { it -> tuple(it.baseName, it, find_index(it)) }
 
-    gvcfs_tbis = DeepVariant(input, fasta, fasta + ".fai") 
+    gvcfs_tbis = DeepVariant(input, params.fasta, params.fasta + ".fai") 
     //  something.$chrom.split.gvcf.gz
-    sp = split(gvcfs_tbis, fasta + ".fai")
+    sp = split(gvcfs_tbis, params.fasta + ".fai")
     gr_by_chrom = sp.flatMap { it }
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
 
-    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, fasta, fasta + ".fai", gff, slivar_zip, params.cohort)
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, params.fasta, params.fasta + ".fai", params.gff, params.slivarzip, params.cohort_name)
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
     jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
-    slivar_results = slivar_rare_disease(jbf, params.ped, slivar_zip)
+    slivar_results = slivar_rare_disease(jbf, params.ped, params.slivarzip)
 
     slivar_tsvs = slivar_results | map { it -> it[4] } | collect
     slivar_counts = slivar_results | map { it -> it[5] } | collect
