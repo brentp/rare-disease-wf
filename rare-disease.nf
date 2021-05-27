@@ -3,7 +3,7 @@ nextflow.enable.dsl=2
 process DeepVariant {
     label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
-    publishDir "results-rare-disease/gvcfs/", mode: 'copy'
+    publishDir "${params.output_dir}/gvcfs/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -50,7 +50,7 @@ include { split; split_by_size } from "./split"
 process glnexus_anno_slivar {
     container = 'docker://brentp/rare-disease:v0.0.4'
     shell = ['/bin/bash', '-euo', 'pipefail']
-    publishDir "results-rare-disease/joint-by-chrom/", mode: 'copy'
+    publishDir "${params.output_dir}/joint-by-chrom/", mode: 'copy'
 
     input:
         tuple(path(gvcfs), val(chrom))
@@ -92,7 +92,7 @@ bcftools index --threads 6 $output_file
 
 process slivar_rare_disease {
   container = 'docker://brentp/rare-disease:v0.0.5'
-  publishDir "results-rare-disease/joint-by-chrom-slivar/", mode: 'copy'
+  publishDir "${params.output_dir}/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
   input: tuple(path(bcf), path(csi))
@@ -169,7 +169,7 @@ wait
 
 process slivar_merge_tsvs {
   container = 'docker://brentp/rare-disease:v0.0.6'
-  publishDir "results-rare-disease/", mode: 'copy'
+  publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
   input: path(tsvs)
@@ -186,7 +186,7 @@ process slivar_merge_tsvs {
 
 process slivar_sum_counts {
   container = 'docker://brentp/rare-disease:v0.0.6'
-  publishDir "results-rare-disease/", mode: 'copy'
+  publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
   input: path(counts)
@@ -238,6 +238,7 @@ Optional Arguments:
 -------------------
 
    --cohort_name     optional name for the cohort (default: "rare-disease")
+   --output_dir      optional name for where to place results (default: "results-rare-disease")
 
     """
 }
@@ -254,6 +255,7 @@ if(!params.slivarzip) { exit 1, "--slivarzip is required" }
 params.model_type = "WGS"
 if(!params.model_type) { exit 1, "--model_type ('WGS' or 'WES') is required" }
 params.cohort_name = "rare-disease"
+params.output_dir = "results-rare-disease"
 
 def find_index(xam_path) {
     base = "${xam_path}".take("${xam_path}".lastIndexOf('.'))
