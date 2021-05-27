@@ -10,6 +10,10 @@ This is a necessary first step with the following limitations:
 
 
 ## Quickstart 
+
+Note, it is early days for the project. It will produce high-quality SNP/indel candidates
+but you may need experience with [nextflow](https://nextflow.io) to run it easily.
+
 This project **currently** has workflow that can be run as:
 
 ```
