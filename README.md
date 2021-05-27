@@ -35,9 +35,10 @@ This does:
  1. Output high-quality calls from [slivar](https://github.com/brentp/slivar) for recessive, dominant, x-linked, compound-het and other
     inheritance modes.
 
-This will:
- 1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
+In coming releases, this will:
+
  1. Provide pre-made IGV outputs for each candidate.
+ 1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
  1. Output high-quality SVs (using manta-> graphtyper)
 
 
