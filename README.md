@@ -39,6 +39,9 @@ This does:
  1. Output high-quality calls from [slivar](https://github.com/brentp/slivar) for recessive, dominant, x-linked, compound-het and other
     inheritance modes.
 
+And the key output will be in: `results-rare-disease/slivar.candidates.tsv` which is something one can easily view in excel or other spreadsheet
+software.
+
 In coming releases, this will:
 
  1. Provide pre-made IGV outputs for each candidate.
