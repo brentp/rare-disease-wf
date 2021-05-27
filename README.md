@@ -17,13 +17,15 @@ but you may need experience with [nextflow](https://nextflow.io) to run it easil
 This project **currently** has workflow that can be run as:
 
 ```
+# NOTE that you need to remove everything after \ on each line for the command to work
+# the comments here are just for documentation purposes.
 nextflow run -resume -profile slurm rare-disease.nf \
-    -config nextflow.config \    # a staring config is included in this repo. adjust from there.
+    -config nextflow.config \    # a starting config is included in this repo. adjust from there.
     --xams "/path/to/*/*.cram" \ # NOTE that this is a string glob
     --ped $pedigree_file \       # see: https://gatk.broadinstitute.org/hc/en-us/articles/360035531972-PED-Pedigree-format
     --fasta $reference_fasta \
     --gff $gff \                   # e.g. from: ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
-    --slivarzip gnomad.hg38.zip    # from: https://github.com/brentp/slivar#gnotation-files
+    --slivarzip gnomad.hg38.zip  \  # from: https://github.com/brentp/slivar#gnotation-files
     --cohort_name my_rare_disease
 ```
 
