@@ -265,7 +265,7 @@ def find_index(xam_path) {
             return file(base + ".bai")
         }
         // .bam.bai
-        base = xam_path.name + ".bai"
+        base = "${xam_path}"
         if(file(base + ".bai").exists()){
             return file(base + ".bai")
         }
@@ -274,8 +274,8 @@ def find_index(xam_path) {
     if(file(base + ".crai").exists()){
         return file(base + ".crai")
     }
-    // .cram.bai
-    base = xam_path.name + ".crai"
+    // .cram.crai
+    base = "${xam_path}"
     if(file(base + ".crai").exists()){
         return file(base + ".crai")
     }
