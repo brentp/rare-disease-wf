@@ -91,7 +91,7 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.0.5'
+  container = 'docker://brentp/rare-disease:v0.0.7'
   publishDir "${params.output_dir}/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -111,6 +111,7 @@ process slivar_rare_disease {
 
   """
 # NOTE: we do *NOT* limit to impactful so that must be reported and used by slivar tsv
+
 export SLIVAR_SUMMARY_FILE=${slivar_counts}.main
 slivar expr --vcf $bcf \
     --ped $ped \
