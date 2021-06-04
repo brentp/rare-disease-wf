@@ -181,7 +181,8 @@ process slivar_merge_tsvs {
     output_file = "slivar.candidates.tsv"
     """
 # get header from first file and drop it from other files
-    awk 'NR == FNR || FNR > 1' $tsvs > ${output_file}
+# and make sure slivar_comphet id is unique
+    awk 'NR == FNR || FNR > 1 { sub(/^slivar_comphet/, "slivar_comphet_"NR, \$0); print; }' $tsvs > ${output_file}
     """
 }
 
