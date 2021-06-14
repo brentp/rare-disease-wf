@@ -215,10 +215,46 @@ process slivar_split_by_fam {
 
   script:
     """
+# NOTE: if template is changed, must change the mode= part of generate_jigv_pages
     tiwih slivar_split_fam --ped $ped \
       --fields denovo,recessive,x_denovo,x_recessive,dominant,slivar_comphet \
       --template 'slivar.rd-byfam.\${field}.fam.\${fam}.bcf' \
       $vcfs
+    """
+
+}
+
+process generate_jigv_pages {
+  container = 'docker://brentp/rare-disease:v0.0.9'
+  publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
+  shell = ['/bin/bash', '-euo', 'pipefail']
+
+
+  input:
+    tuple(val(family_id), path(vcfs))
+    path(xams)
+    path(indexes)
+    path(ped)
+    path(fasta)
+    path(fai)
+
+  output: path("*.jigv.html")
+
+  script:
+    """
+awk '\$1 == "$family_id"' $ped > fam.ped
+
+for vcf in ${vcfs}; do
+    mode=\$(basename \$vcf | cut -d. -f 3)
+
+jigv \
+  --ped fam.ped \
+  --sites \$vcf \
+  --fasta $fasta \
+  $xams > \${mode}.${family_id}.jigv.html
+
+done
+
     """
 
 }
@@ -335,6 +371,11 @@ workflow {
 
     byfam = slivar_split_by_fam(params.ped, slivar_vcfs) | flatMap { it } | map { it -> [ file(file(it).baseName).getExtension(), it ] }
       | groupTuple(by:0)
-    byfam | view
+
+    xams = input | map { it -> it[1] } | collect
+    indexes = input | map { it -> it[2] } | collect
+
+    generate_jigv_pages(byfam, xams, indexes, params.ped, params.fasta, params.fasta + ".fai")
+    // TODO: get bams grouped by family. dont want to stage all crams for each family.
 
 }
