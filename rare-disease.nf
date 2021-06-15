@@ -211,27 +211,35 @@ process slivar_split_by_fam {
     path(vcfs)
 
   output: 
-    path("*.fam.*.bcf")
+    path("*.fam.*.bcf{,.csi}")
 
   script:
     """
 # NOTE: if template is changed, must change the mode= part of generate_jigv_pages
-    tiwih slivar_split_fam --ped $ped \
-      --fields denovo,recessive,x_denovo,x_recessive,dominant,slivar_comphet \
-      --template 'slivar.rd-byfam.\${field}.fam.\${fam}.bcf' \
-      $vcfs
+tiwih slivar_split_fam --ped $ped \
+  --fields denovo,recessive,x_denovo,x_recessive,dominant,slivar_comphet \
+  --template 'slivar.rd-byfam.\${field}.fam.\${fam}.bcf' \
+  $vcfs
+# out of order because comphet + other vars.
+for f in *.fam.*.bcf; do
+    bcftools sort -O b -o tmp.bcf \$f
+    mv tmp.bcf \$f
+    bcftools index \$f
+done
+
     """
 
 }
 
 process generate_jigv_pages {
-  container = 'docker://brentp/rare-disease:v0.0.9'
+  container = 'docker://brentp/rare-disease:v0.1.0'
   publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
+  cache false
 
 
   input:
-    tuple(val(family_id), path(vcfs))
+    tuple(val(family_id), path(vcfs), path(csis))
     path(xams)
     path(indexes)
     path(ped)
@@ -241,6 +249,7 @@ process generate_jigv_pages {
   output: path("*.jigv.html")
 
   script:
+  println(vcfs)
     """
 awk '\$1 == "$family_id"' $ped > fam.ped
 
@@ -250,6 +259,7 @@ for vcf in ${vcfs}; do
 jigv \
   --ped fam.ped \
   --sites \$vcf \
+  --flank 100 \
   --fasta $fasta \
   $xams > \${mode}.${family_id}.jigv.html
 
@@ -369,13 +379,18 @@ workflow {
     slivar_merge_tsvs(slivar_tsvs)
     slivar_sum_counts(slivar_counts)
 
-    byfam = slivar_split_by_fam(params.ped, slivar_vcfs) | flatMap { it } | map { it -> [ file(file(it).baseName).getExtension(), it ] }
-      | groupTuple(by:0)
+    byFamBcfIdx = slivar_split_by_fam(params.ped, slivar_vcfs) | flatMap { it }
+
+    byFamBcf = byFamBcfIdx | filter { "${it}".endsWith(".bcf") } 
+        | map { it -> [ file(file(it).baseName).getExtension(), file(it), file(it + ".csi") ] }
+        | groupTuple(by: 0)
+
+    //byFamBcf | view
 
     xams = input | map { it -> it[1] } | collect
     indexes = input | map { it -> it[2] } | collect
 
-    generate_jigv_pages(byfam, xams, indexes, params.ped, params.fasta, params.fasta + ".fai")
+    generate_jigv_pages(byFamBcf, xams, indexes, params.ped, params.fasta, params.fasta + ".fai")
     // TODO: get bams grouped by family. dont want to stage all crams for each family.
 
 }
