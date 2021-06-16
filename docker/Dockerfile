@@ -4,7 +4,7 @@ MAINTAINER brentp
 ARG slivar_version=v0.2.3
 ARG htslib_version=1.12
 ARG glnexus_version=v1.3.1
-ARG tiwih_version=v0.0.8
+ARG tiwih_version=v0.1.0
 ARG jigv_version=v0.1.4
 
 RUN apt-get -qq update && \
