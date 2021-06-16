@@ -203,7 +203,7 @@ process slivar_sum_counts {
 }
 
 process slivar_split_by_fam {
-  container = 'docker://brentp/rare-disease:v0.1.0'
+  container = 'docker://brentp/rare-disease:v0.1.1'
   publishDir "${params.output_dir}/slivar_split_by_fam_mode", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   input: 
@@ -217,9 +217,7 @@ process slivar_split_by_fam {
     """
 # NOTE: if --template is changed, must change the mode= part of generate_jigv_pages
 
-wget -q https://github.com/brentp/tiwih/releases/download/v0.0.8/tiwih
-chmod +x ./tiwih
-./tiwih slivar_split_fam --ped $ped \
+tiwih slivar_split_fam --ped $ped \
   --fields denovo,recessive,x_denovo,x_recessive,dominant,slivar_comphet \
   --template 'slivar.rd-byfam.\${field}.fam.\${fam}.bcf' \
   $bcfs
@@ -236,7 +234,7 @@ done
 }
 
 process generate_jigv_pages {
-  container = 'docker://brentp/rare-disease:v0.1.0'
+  container = 'docker://brentp/rare-disease:v0.1.1'
   publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   cache false
