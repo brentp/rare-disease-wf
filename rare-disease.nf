@@ -203,25 +203,29 @@ process slivar_sum_counts {
 }
 
 process slivar_split_by_fam {
-  container = 'docker://brentp/rare-disease:v0.0.8'
+  container = 'docker://brentp/rare-disease:v0.1.0'
   publishDir "${params.output_dir}/slivar_split_by_fam_mode", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   input: 
     path(ped)
-    path(vcfs)
+    path(bcfs)
 
   output: 
     path("*.fam.*.bcf{,.csi}")
 
   script:
     """
-# NOTE: if template is changed, must change the mode= part of generate_jigv_pages
-tiwih slivar_split_fam --ped $ped \
+# NOTE: if --template is changed, must change the mode= part of generate_jigv_pages
+
+wget -q https://github.com/brentp/tiwih/releases/download/v0.0.8/tiwih
+chmod +x ./tiwih
+./tiwih slivar_split_fam --ped $ped \
   --fields denovo,recessive,x_denovo,x_recessive,dominant,slivar_comphet \
   --template 'slivar.rd-byfam.\${field}.fam.\${fam}.bcf' \
-  $vcfs
-# out of order because comphet + other vars.
+  $bcfs
+
 for f in *.fam.*.bcf; do
+    # out of order because comphet + other vars.
     bcftools sort -O b -o tmp.bcf \$f
     mv tmp.bcf \$f
     bcftools index \$f
@@ -256,12 +260,12 @@ awk '\$1 == "$family_id"' $ped > fam.ped
 for vcf in ${vcfs}; do
     mode=\$(basename \$vcf | cut -d. -f 3)
 
-jigv \
-  --ped fam.ped \
-  --sites \$vcf \
-  --flank 100 \
-  --fasta $fasta \
-  $xams > \${mode}.${family_id}.jigv.html
+    jigv \
+      --ped fam.ped \
+      --sites \$vcf \
+      --flank 100 \
+      --fasta $fasta \
+      $xams > \${mode}.${family_id}.jigv.html
 
 done
 
