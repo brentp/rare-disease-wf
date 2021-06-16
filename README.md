@@ -29,6 +29,10 @@ nextflow run -resume -profile slurm rare-disease.nf \
     --cohort_name my_rare_disease
 ```
 
+## Output
+
+See [this wiki page](https://github.com/brentp/rare-disease-wf/wiki/Workflow-Output) for more information about how to use the output.
+
 This does:
 
  1. Run [DeepVariant](https://github.com/google/deepvariant) and [GLNexus](https://github.com/dnanexus-rnd/GLnexus) (we have shown these tools to give higher quality results for trios) in an efficient nextflow workflow that can be easily run in the cloud or on a cluster.
@@ -40,13 +44,13 @@ This does:
     - loss-of-function intolerance
  1. Output high-quality calls from [slivar](https://github.com/brentp/slivar) for recessive, dominant, x-linked, compound-het and other
     inheritance modes.
+ 1. Generates and links pre-made, standalone [igv.js](https://github.com/igvteam/igv.js)/[jigv](https://github.com/brentp/jigv) outputs for each candidate.
 
 And the key output will be in: `results-rare-disease/slivar.candidates.tsv` which is something one can easily view in excel or other spreadsheet
 software.
 
 In coming releases, this will:
 
- 1. Provide pre-made IGV outputs for each candidate.
  1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
  1. Output high-quality SVs (using manta-> graphtyper)
 
@@ -55,8 +59,6 @@ In coming releases, this will:
 
 Development and research is underway so that it will:
 
- 1. Auto-generate per-family IGV images or interactive igv.js pages of candidate variants.
- 1. Automatically detect trios in the given pedigree file (or via [somalier](https://github.com/brentp/somalier)) and run [DeepTrio](https://www.biorxiv.org/content/10.1101/2021.04.05.438434v1.full)
  1. Add a high-quality set of SV/CNVs
     - [Manta](https://github.com/Illumina/manta) + SVchannels and [duphold](https://github.com/brentp/duphold) filtering
  1. Add some **prioritization** of variants
