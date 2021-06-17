@@ -13,23 +13,23 @@
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
 
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.1/umd/index.min.js"></script>
-
-
     <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.8.5/dist/igv.min.js"></script>
+
 
 <style type="text/css">
 table {
     text-overflow: ellipsis;
     overflow:hidden;
 }
-table td {
-max-width: 120px;
+table td, table th {
+max-width: 110px;
 white-space: nowrap;
 text-overflow: ellipsis;
 word-break: break-all;
 overflow: hidden;
 }
-table td:hover {
+table td:hover, table th:hover {
     overflow: visible;
     height: auto;
     white-space:wrap;
@@ -39,44 +39,115 @@ table td:hover {
 </style>
 
     <script type="text/javascript">
-        var enc
-        jQuery(document).ready(function() {
-            enc = jQuery('#csv').html()
-            var enc = Uint8Array.from(atob(enc), c => c.charCodeAt(0))
-            var data = fflate.strFromU8(fflate.decompressSync(enc));
+var x
+var table;
+function render_table(results, file) {
+    //results.data.forEach(row => {
+        // BP TODO: how to group by comphet id?
+     //   if(row.mode.startsWith("slivar_comphet")){ row.mode = "compound-het" }
+    //})
+    var columns = []
+    results.meta.fields.forEach(f => columns.push({data: f,
+        title: f, name:f}))
+    table = jQuery('#table').DataTable({
+        data:results.data, 
+        columns: columns,
+        scrollX: true,
+        autoWidth: false,
+        ordering: true,
+        search: {smart: true},
+        initComplete: function () {
+            // TODO: make the column headers match/affect width of table
+            this.api().columns([0, 1, 2, "impactful:name"]).every( function () {
+                var column = this;
+                //var footer = $(this).append('<tfoot><tr></tr></tfoot>');
 
-            Papa.parse(data, { 
-                skipEmptyLines:true,
-                header: true,
-                config: {
-                },
-                complete: function(results, file) {
-                    var columns = []
-                    results.meta.fields.forEach(f => columns.push({data: f,
-                        title: f}))
-                    jQuery('#table').DataTable({
-                        data:results.data, 
-                        columns: columns,
-                        scrollX: true,
-                        autoWidth: false,
-                        ordering: true,
-                        search: {smart: true},
-
-                    })
-                },
-                error: function(err, file, inputElem, reason) {
-                    console.log("error:", err, " reason:", reason)
+                var data
+                if(this.dataSrc() == "mode") {
+                    data = column.data().map(f => f.startsWith("slivar_comphet") ? "compound-het": f).unique()
+                } else {
+                    data = column.data().unique()
                 }
+                //if(data.length > 100) { return }
+                var select = $('<select><option value="">Show All</option></select>')
+                    //.appendTo( $(column.footer()).empty() )
+                    .on( 'change', function () {
+                        var val = $.fn.dataTable.util.escapeRegex(
+                            $(this).val()
+                        );
+                        var end = $(this).val() == "compound-het" ? "" : "$"
+                        if (end == "") {
+                            val = "slivar_comphet"
+                        }
 
+                        column
+                            .search( val ? '^'+val+end : '', true, false )
+                            .draw();
+                    } );
+
+                data.sort().each( function ( d, j ) {
+                    var e = document.createElement("option")
+                    e.text = (d || "").substr(0, 15)
+                    e.value = d
+                    select.append(e)
+               } );
+               select.appendTo( $(column.header()) )
+               select.click(e => e.stopPropagation())
             })
-        })
+        },
+    })
+    jQuery('#table tr').on('click', function() {
+        // BSP: start here. link to html
+        var data = table.row(this).data();
+        console.log(data)
+    })
+}
+
+jQuery(document).ready(function() {
+    enc = jQuery('#csv').html()
+    var enc = Uint8Array.from(atob(enc), c => c.charCodeAt(0))
+    var data = fflate.strFromU8(fflate.decompressSync(enc));
+    if(data[0] == '#'){ data = data.substr(1) }
+
+    Papa.parse(data, { 
+        skipEmptyLines:true,
+        delimiter: "\t",
+        header: true,
+        dynamicTyping: true,
+        complete: render_table,
+        error: function(err, file, inputElem, reason) {
+            console.log("error:", err, " reason:", reason)
+        }
+
+    })
+
+
+
+    var s = document.createElement("script")
+    s.type = "text/javascript"
+    s.src = "x.js"
+    s.onload = function(a, b) {
+        console.log(this, a, b)
+    }
+
+    document.body.appendChild(s)
+
+    var div = document.getElementById("igv")
+    meta_options = {"sessionURL": data }
+    igv.createBrowser(div, meta_options)
+
+
+})
+
+
     </script>
 
 
 </head>
 <body>
-    <table id="table" class="display compact stripe order-column"></table>
+    <table id="table" class="display compact stripe order-column"><tfoot></tfoot></table>
 
+    <div id="igv"></div>
 
 <div id="csv" style="display:none">
 H4sICMKsyWAAA3NsaXZhci5jYW5kaWRhdGVzLnRzdgDsPdtuG7mSzzpfIWCBxS6gKCSLVxv7oCiO
