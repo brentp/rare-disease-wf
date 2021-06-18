@@ -96,17 +96,55 @@ function render_table(results, file) {
             })
         },
     })
-    jQuery('#table tr').on('click', function() {
+    jQuery(document).on('click', '#table tr', function() {
         // BSP: start here. link to html
         var data = table.row(this).data();
         console.log(data)
+        var v = data["chr:pos:ref:alt"].replace(/:/g, "-")
+        path = `jigv_plots/${v}.jigv.js`
+
+        domeval(path, draw)
     })
+}
+
+function draw() {
+    meta_options = {"sessionURL": jigv_data }
+    if(browser == null ){
+        igv.createBrowser(igv_div, meta_options).then(b => {
+            browser = b
+        })
+    } else {
+        options["url"] = jigv_data;
+        browser.loadSession(options)
+    }
+}
+
+var browser
+var igv_div
+
+var options = {
+      "showCursorTrackingGuide": true,
+      "showChromosomeWidget": false,
+      "queryParametersSupported": true,
+      "search": false,
+}
+
+
+var jigv_data; // set when script is loaded
+
+function domeval(src_path, onload_fn) {
+    var s = document.createElement("script")
+    s.type = "text/javascript"
+    s.src = src_path
+    s.onload = onload_fn
+    document.head.appendChild(s).parentNode.removeChild(s)
 }
 
 jQuery(document).ready(function() {
     enc = jQuery('#csv').html()
     var enc = Uint8Array.from(atob(enc), c => c.charCodeAt(0))
     var data = fflate.strFromU8(fflate.decompressSync(enc));
+    igv_div = document.getElementById("igv")
     if(data[0] == '#'){ data = data.substr(1) }
 
     Papa.parse(data, { 
@@ -120,22 +158,6 @@ jQuery(document).ready(function() {
         }
 
     })
-
-
-
-    var s = document.createElement("script")
-    s.type = "text/javascript"
-    s.src = "x.js"
-    s.onload = function(a, b) {
-        console.log(this, a, b)
-    }
-
-    document.body.appendChild(s)
-
-    var div = document.getElementById("igv")
-    meta_options = {"sessionURL": data }
-    igv.createBrowser(div, meta_options)
-
 
 })
 
