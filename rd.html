@@ -101,7 +101,7 @@ function render_table(results, file) {
         var data = table.row(this).data();
         console.log(data)
         var v = data["chr:pos:ref:alt"].replace(/:/g, "-")
-        path = `jigv_plots/${v}.jigv.js`
+        path = `jigv_plots/${data.family_id}/${data.mode}/${data.family_id}.${data.mode}.${v}.js`
 
         domeval(path, draw)
     })
