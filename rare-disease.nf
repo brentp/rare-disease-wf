@@ -248,24 +248,31 @@ process generate_jigv_pages {
     path(fasta)
     path(fai)
 
-  output: path("*.jigv.html")
+  output:
+    path("${outdir}")
 
   script:
-  println(vcfs)
+  osite='\\${site}'
+  outdir = "./$family_id"
     """
+wget -q https://github.com/brentp/jigv/releases/download/v0.1.6/jigv
+chmod +x ./jigv
+export PATH=.:\$PATH
+
 awk '\$1 == "$family_id"' $ped > fam.ped
 
 for vcf in ${vcfs}; do
     mode=\$(basename \$vcf | cut -d. -f 3)
 
     jigv \
+      --template "$outdir/\${mode}/${family_id}.\${mode}.${osite}.js" \
       --ped fam.ped \
       --sites \$vcf \
       --flank 100 \
       --fasta $fasta \
-      $xams > \${mode}.${family_id}.jigv.html
-
+      $xams &
 done
+wait
 
     """
 
