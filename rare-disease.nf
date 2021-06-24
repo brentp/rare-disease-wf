@@ -203,7 +203,7 @@ process slivar_sum_counts {
 }
 
 process slivar_split_by_fam {
-  container = 'docker://brentp/rare-disease:v0.1.1'
+  container = 'docker://brentp/rare-disease:v0.1.7'
   publishDir "${params.output_dir}/slivar_split_by_fam_mode", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   input: 
@@ -234,7 +234,7 @@ done
 }
 
 process generate_jigv_pages {
-  container = 'docker://brentp/rare-disease:v0.1.1'
+  container = 'docker://brentp/rare-disease:v0.1.7'
   publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   cache false
@@ -252,12 +252,8 @@ process generate_jigv_pages {
     path("${outdir}")
 
   script:
-  osite='\\${site}'
   outdir = "./$family_id"
     """
-wget -q https://github.com/brentp/jigv/releases/download/v0.1.6/jigv
-chmod +x ./jigv
-export PATH=.:\$PATH
 
 awk '\$1 == "$family_id"' $ped > fam.ped
 
@@ -265,7 +261,7 @@ for vcf in ${vcfs}; do
     mode=\$(basename \$vcf | cut -d. -f 3)
 
     jigv \
-      --template "$outdir/\${mode}/${family_id}.\${mode}.${osite}.js" \
+      --prefix "$outdir/\${mode}/${family_id}.\${mode}." \
       --ped fam.ped \
       --sites \$vcf \
       --flank 100 \
