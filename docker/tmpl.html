@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Brent Pedersen" >
+
+    <script type="text/javascript"
+            src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script type="text/javascript"
+            src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.1/papaparse.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.1/umd/index.min.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/fixedcolumns/3.3.3/js/dataTables.fixedColumns.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.8.5/dist/igv.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.8.5/dist/igv.min.js"></script>
+
+
+<style type="text/css">
+table {
+    text-overflow: ellipsis;
+    overflow:hidden;
+
+  margin: 0 auto;
+  width: 100%;
+  clear: both;
+  border-collapse: collapse;
+  // table-layout: fixed; // ***********add this
+  word-wrap:break-word; // ***********and this
+
+}
+table td, table th {
+max-width: 110px;
+white-space: nowrap;
+text-overflow: ellipsis;
+word-break: break-all;
+overflow: hidden;
+}
+table td:hover, table th:hover {
+    overflow: visible;
+    height: auto;
+    white-space:wrap;
+    max-width: 300px;
+}
+
+</style>
+
+    <script type="text/javascript">
+var x
+var table;
+function render_table(results, file) {
+    var columns = []
+    // TODO: how to get chr:pos:ref:alt column wider?
+    var coldefs = [{"width": "30%", "targets": [3]}]
+    results.meta.fields.forEach(f => columns.push({data: f,
+        title: f, name:f}))
+    table = jQuery('#table').DataTable({
+        data:results.data, 
+        scrollCollapse: true,
+        paging: true,
+        deferRender: true,
+        iDisplayLength: 15,
+        lengthMenu: [[15, 25, 50, 100, 1000], [15, 25, 50, 100, 1000]],
+        columns: columns,
+        scrollX: true,
+        scrollY: "500px",
+        autoWidth: false,
+        fixedHeader: {header: false, footer: false},
+        columnDefs: coldefs,
+        fixedColumns: true,
+        ordering: true,
+        search: {smart: true},
+        initComplete: function () {
+            // TODO: make the column headers match/affect width of table
+            this.api().columns([0, 1, 2, "impactful:name", "genic:name"]).every( function () {
+                var column = this;
+                //var footer = $(this).append('<tfoot><tr></tr></tfoot>');
+
+                var data
+                if(this.dataSrc() == "mode") {
+                    data = column.data().map(f => f.startsWith("slivar_comphet") ? "compound-het": f).unique()
+                } else {
+                    data = column.data().unique()
+                }
+                //if(data.length > 100) { return }
+                var select = $('<select><option value="">Show All</option></select>')
+                    //.appendTo( $(column.footer()).empty() )
+                    .on( 'change', function () {
+                        var val = $.fn.dataTable.util.escapeRegex(
+                            $(this).val()
+                        );
+                        var end = $(this).val() == "compound-het" ? "" : "$"
+                        if (end == "") {
+                            val = "slivar_comphet"
+                        }
+
+                        column
+                            .search( val ? '^'+val+end : '', true, false )
+                            .draw();
+                    } );
+
+                data.sort().each( function ( d, j ) {
+                    var e = document.createElement("option")
+                    e.text = (d || "").substr(0, 15)
+                    e.value = d
+                    select.append(e)
+               } );
+               select.appendTo( $(column.header()) )
+               select.click(e => e.stopPropagation())
+            })
+        },
+    })
+    jQuery(document).on('click', '#table tr', function() {
+        // BSP: start here. link to html
+        var data = table.row(this).data();
+        console.log(data)
+        var v = data["chr:pos:ref:alt"].replace(/:/g, "-")
+        path = `<JIGV_TMPL_PATH>`
+        domeval(path, draw)
+    })
+}
+
+function draw() {
+    if(browser == null ){
+        meta_options = {"sessionURL": jigv_data }
+        igv.createBrowser(igv_div, meta_options).then(b => {
+            browser = b
+        })
+    } else {
+        options["url"] = jigv_data;
+        browser.loadSession(options)
+    }
+}
+
+var browser
+var igv_div
+
+var options = {
+      "showCursorTrackingGuide": true,
+      "showChromosomeWidget": false,
+      "queryParametersSupported": true,
+      "search": false,
+}
+
+var jigv_data; // set when script is loaded
+
+function domeval(src_path, onload_fn) {
+    var s = document.createElement("script")
+    s.type = "text/javascript"
+    s.src = src_path
+    s.onload = onload_fn
+    document.head.appendChild(s).parentNode.removeChild(s)
+}
+
+jQuery(document).ready(function() {
+    enc = jQuery('#csv').html()
+    var enc = Uint8Array.from(atob(enc), c => c.charCodeAt(0))
+    var data = fflate.strFromU8(fflate.decompressSync(enc));
+    igv_div = document.getElementById("igv")
+    if(data[0] == '#'){ data = data.substr(1) }
+
+    Papa.parse(data, { 
+        skipEmptyLines:true,
+        delimiter: "\t",
+        header: true,
+        dynamicTyping: true,
+        complete: render_table,
+        error: function(err, file, inputElem, reason) {
+            console.log("error:", err, " reason:", reason)
+        }
+
+    })
+
+})
+
+
+    </script>
+
+
+</head>
+<body>
+    <table id="table" class="display compact stripe order-column"><tfoot></tfoot></table>
+
+    <div id="igv"></div>
+
+<div id="csv" style="display:none">
+  <ENCODED>
+</div>
+
+
+</body>
+</html
+
+
+
+
+
