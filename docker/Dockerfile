@@ -56,6 +56,7 @@ ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /u
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
 ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin
 ADD https://github.com/brentp/jigv/releases/download/$jigv_version/jigv /usr/local/bin/jigv
+ADD tmpl.html /opt/rare-disease/tmpl.html
 
 RUN chmod +x /usr/local/bin/slivar && chmod a+r /opt/slivar/slivar-functions.js \
     && chmod +x /usr/local/bin/tiwih \
