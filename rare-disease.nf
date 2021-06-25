@@ -48,7 +48,7 @@ echo "TMPDIR:\$TMPDIR"
 include { split; split_by_size } from "./split"
 
 process glnexus_anno_slivar {
-    container = 'docker://brentp/rare-disease:v0.1.8'
+    container = 'docker://brentp/rare-disease:v0.1.9'
     shell = ['/bin/bash', '-euo', 'pipefail']
     publishDir "${params.output_dir}/joint-by-chrom/", mode: 'copy'
 
@@ -91,7 +91,7 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.1.8'
+  container = 'docker://brentp/rare-disease:v0.1.9'
   publishDir "${params.output_dir}/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -170,7 +170,7 @@ wait
 
 process slivar_merge_tsvs {
   // TSVS are by chromosome. just concatentate them here to get a single file.
-  container = 'docker://brentp/rare-disease:v0.1.8'
+  container = 'docker://brentp/rare-disease:v0.1.9'
   publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -187,9 +187,8 @@ process slivar_merge_tsvs {
 # and make sure slivar_comphet id is unique
     awk 'NR == FNR || FNR > 1 { sub(/^slivar_comphet/, "slivar_comphet_"NR, \$0); print; }' $tsvs > ${output_file}
 
-    # TODO: change this to /opt/rare-disease/tmpl.html after updating docker
     tiwih slivar_jigv_tsv \
-        --html-template /opt/rare-disease \
+        --html-template /opt/rare-disease/tmpl.html \
         --prefix 'jigv_plots/\${family_id}/\${mode}/\${family_id}.\${mode}.\${site}.js' \
         ${output_file} > ${html_output}
 
@@ -197,7 +196,7 @@ process slivar_merge_tsvs {
 }
 
 process slivar_sum_counts {
-  container = 'docker://brentp/rare-disease:v0.1.8'
+  container = 'docker://brentp/rare-disease:v0.1.9'
   publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -213,7 +212,7 @@ process slivar_sum_counts {
 }
 
 process slivar_split_by_fam {
-  container = 'docker://brentp/rare-disease:v0.1.8'
+  container = 'docker://brentp/rare-disease:v0.1.9'
   publishDir "${params.output_dir}/slivar_split_by_fam_mode", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   input: 
@@ -244,7 +243,7 @@ done
 }
 
 process generate_jigv_pages {
-  container = 'docker://brentp/rare-disease:v0.1.8'
+  container = 'docker://brentp/rare-disease:v0.1.9'
   publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   cache false
