@@ -180,7 +180,7 @@ process slivar_merge_tsvs {
   output: tuple(path("${output_file}"), path("${html_output}"))
 
   script:
-    output_file = "slivar.candidates.tsv"
+    output_file = "${cohort_name}.slivar.candidates.tsv"
     html_output = "${cohort_name}.jigv.html"
     """
 # get header from first file and drop it from other files

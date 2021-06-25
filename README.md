@@ -46,8 +46,8 @@ This does:
     inheritance modes.
  1. Generates and links pre-made, standalone [igv.js](https://github.com/igvteam/igv.js)/[jigv](https://github.com/brentp/jigv) outputs for each candidate.
 
-And the key output will be in: `results-rare-disease/slivar.candidates.tsv` which is something one can easily view in excel or other spreadsheet
-software.
+And the key output will be in: `results-rare-disease/${cohort_name}.slivar.candidates.tsv` which is something one can easily view in excel or other spreadsheet software.
+In addition, it will create: `results-rare-disease/${cohort_name}.jigv.html` and `results-rare-disease/jigv_plots/*` which together provide an HTML table and interactive [igv.js](https://github.com/brentp/igvteam/igv.js) views of each variant and associated alignments that do not rely on the original alignment files.
 
 In coming releases, this will:
 
