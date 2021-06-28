@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 MAINTAINER brentp
 
-ARG slivar_version=v0.2.3
+ARG slivar_version=v0.2.4
 ARG htslib_version=1.12
 ARG glnexus_version=v1.3.1
 ARG tiwih_version=v0.1.1
@@ -50,7 +50,8 @@ RUN cd / && \
     echo '#!/bin/bash' > /usr/local/bin/snpEff && \
     echo 'java -Xmx4g -jar /snpEff/snpEff.jar "$@"' >> /usr/local/bin/snpEff && \
     chmod +x /usr/local/bin/snpEff && \
-    snpEff -version # && snpEff download GRCh38.99
+    snpEff -version # && snpEff download GRCh38.99 
+
 
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
