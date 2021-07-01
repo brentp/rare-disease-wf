@@ -3,7 +3,7 @@ FROM ubuntu:16.04
 ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
 #ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
-ADD https://github.com/brentp/tiwih/releases/download/v0.0.4/tiwih /usr/local/bin
+ADD https://github.com/brentp/tiwih/releases/download/v0.1.2/tiwih /usr/local/bin
 
 # graphtyper and deps
 RUN apt-get update -qq \
@@ -27,9 +27,10 @@ ENV PATH=/opt/miniconda/bin:$PATH
 RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
 	    && conda install -yc bioconda pysam bcftools paragraph && \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
-	    git clone https://github.com/DecodeGenetics/svimmer && \
-	    cp svimmer/svimmer svimmer/sv.py svimmer/utilities.py /opt/miniconda/bin/ && \
-	    svimmer -h
+      conda config --add channels bioconda && \
+      conda config --add channels conda-forge && \
+      conda install -y jasminesv
+
 
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
 	    curl -SsLo $f https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcfgraph/vcfgraph.py; \
