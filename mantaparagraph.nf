@@ -57,11 +57,21 @@ process jasmine {
     // we don't merge if we only have a single sample.
     if(sample_vcfs.size() > 1) {
         """
-        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} bcftools index -f --threads 2 {}
+	# jasmine can't do gzip.
+        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} sh -c 'bcftools view -O v {} > {}.un &&  mv {}.un {}'
+
         chroms=\$(awk '\$2 > 10000000 { printf("%s ", \$1) }' $fai) 
         # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
         jasmine --file_list=${workDir}/vcfs.list out_file=${output_file}.tmp.vcf.gz
-        tiwih setsvalt --drop-bnds ${output_file}.tmp.vcf.gz  -o $output_file
+        # jasmine currently doesn't output PRECISE which causes problems.
+	bcftools view -h ${output_file}.tmp.vcf.gz > header.txt
+	head -n -1 header.txt > h.txt
+	echo '##INFO=<ID=PRECISE,Number=0,Type=Flag,Description="Precise structural variation">' >> h.txt
+	tail -n 1 header.txt >> h.txt
+	bcftools reheader -h h.txt -o o.vcf.gz ${output_file}.tmp.vcf.gz
+	bcftools sort -m 2G -O z -o ${output_file}.tmp.vcf.gz o.vcf.gz
+# NOTE: changed the path to local for debugging
+        ~/bin/tiwih setsvalt --drop-bnds --inv-2-ins ${output_file}.tmp.vcf.gz  -o $output_file
         tabix $output_file
         """
     } else {
