@@ -73,10 +73,10 @@ process jasmine {
 
 }
 
-process paragraph {
+process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.2.4'
+  container = 'docker://brentp/manta-paragraph:v0.2.5'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -105,9 +105,8 @@ multigrmpy.py -i $site_vcf \
     -t ${task.cpus} \
     -M \$M
 
-mv t/genotypes.vcf.gz $output_file
+duphold -d -v t/genotypes.vcf.gz -b $bam -f $fasta -t 4 -o $output_file
 bcftools index --threads 3 $output_file
-
   """
 
 }
@@ -137,18 +136,29 @@ process square {
 
 workflow {
 
-    fasta = "/media/brentp/transcend/data/human/GRCh38_full_analysis_set_plus_decoy_hla.fa"
+    //fasta = "/media/brentp/transcend/data/human/GRCh38_full_analysis_set_plus_decoy_hla.fa"
+    //samples = [
+    //    ["HG01051",
+    //   "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
+    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"],
+    //    ["HG01052",
+    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram",
+    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram.crai"],
+    //    ["HG01053",
+    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
+    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"]
+    //]
+
     samples = [
-        ["HG01051",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"],
-        ["HG01052",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram.crai"],
-        ["HG01053",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
-        "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"]
+     ["HG01051", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01051.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01051.final.cram.crai"],
+     ["HG01052", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01052.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01052.final.cram.crai"],
+     ["HG01053", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01053.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01053.final.cram.crai"],
+     ["NA19256", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19256.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19256.final.cram.crai"],
+     ["NA19257", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19257.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19257.final.cram.crai"],
+     ["NA19258", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19258.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19258.final.cram.crai"]
     ]
+
+    fasta = "/hpc/cog_bioinf/GENOMES.old/1KP_GRCh38/GRCh38_full_analysis_set_plus_decoy_hla.fa"
 
 
     input = channel.fromList(samples)
@@ -160,7 +170,7 @@ workflow {
 
     sv_merged = jasmine(mr, fasta + ".fai")
 
-    genotyped = paragraph(sv_merged, input, fasta, fasta + ".fai")
+    genotyped = paragraph_duphold(sv_merged, input, fasta, fasta + ".fai")
 
     square(genotyped.toList()) | view
 

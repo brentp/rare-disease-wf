@@ -1,14 +1,20 @@
 FROM ubuntu:16.04
 
+ARG tiwih_version=v0.1.2
+ARG duphold_version=v0.2.3
+
+
 ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
 #ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
-ADD https://github.com/brentp/tiwih/releases/download/v0.1.2/tiwih /usr/local/bin
+ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin
+ADD https://github.com/brentp/duphold/releases/download/$duphold_version/duphold
 
 # graphtyper and deps
 RUN apt-get update -qq \
     && apt-get -qy install --no-install-recommends build-essential bzip2 python2.7 git ca-certificates parallel \
-    && chmod a+x /usr/local/bin/tiwih
+    && chmod a+x /usr/local/bin/tiwih \
+    && chmod a+x /usr/local/bin/duphold
 # && chmod a+x /usr/local/bin/graphtyper \
 
 
