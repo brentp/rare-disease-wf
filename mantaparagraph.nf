@@ -51,20 +51,22 @@ process jasmine {
     output_file = "jasmine.merged.vcf.gz"
     file("$workDir/vcfs.list").withWriter { fh ->
             sample_vcfs.each { vcf ->
-                fh.write(vcf.toString()); fh.write("\n")
+                // write .vcf even though it's really .vcf.gz since jasmine doesn't accept gz
+                // and we change the file below.
+                fh.write(vcf.toString().take(vcf.toString().lastIndexOf('.'))); fh.write("\n")
             }
     }
     // we don't merge if we only have a single sample.
     if(sample_vcfs.size() > 1) {
         """
-      	# jasmine can't do gzip.
-        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} sh -c 'bcftools view -O v {} > {}.un &&  mv {}.un {}'
+        # jasmine can't do gzip.
+        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} sh -c 'bcftools view -O v {}.gz -o {}'
 
         # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
-        jasmine --file_list=${workDir}/vcfs.list out_file=${output_file}.tmp.vcf.gz
-	      bcftools sort -m 2G -O z -o tmp.vcf.gz ${output_file}.tmp.vcf.gz
-        tiwih setsvalt --drop-bnds --inv-2-ins ${output_file}.tmp.vcf.gz  -o $output_file
-        tabix $output_file
+        jasmine --file_list=${workDir}/vcfs.list out_file=${output_file}
+        tiwih setsvalt --drop-bnds --inv-2-ins -o ${output_file}.tmp.vcf.gz $output_file
+        bcftools sort --temp-dir $TMPDIR -m 2G -O z -o ${output_file} ${output_file}.tmp.vcf.gz
+        bcftools index --tbi $output_file
         """
     } else {
         """
