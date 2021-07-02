@@ -70,7 +70,7 @@ process jasmine {
 	tail -n 1 header.txt >> h.txt
 	bcftools reheader -h h.txt -o o.vcf.gz ${output_file}.tmp.vcf.gz
 	bcftools sort -m 2G -O z -o ${output_file}.tmp.vcf.gz o.vcf.gz
-# NOTE: changed the path to local for debugging
+        # NOTE: changed the path to local for debugging
         ~/bin/tiwih setsvalt --drop-bnds --inv-2-ins ${output_file}.tmp.vcf.gz  -o $output_file
         tabix $output_file
         """

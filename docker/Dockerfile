@@ -5,7 +5,7 @@ ARG slivar_version=v0.2.4
 ARG htslib_version=1.12
 ARG glnexus_version=v1.3.1
 ARG tiwih_version=v0.1.2
-ARG jigv_version=v0.1.7
+ARG jigv_version=v0.1.8
 
 RUN apt-get -qq update && \
      apt-get -qq install -y --no-install-recommends --no-install-suggests \
