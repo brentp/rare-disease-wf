@@ -8,7 +8,7 @@ ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /o
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
 #ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
 ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin
-ADD https://github.com/brentp/duphold/releases/download/$duphold_version/duphold
+ADD https://github.com/brentp/duphold/releases/download/$duphold_version/duphold /usr/local/bin
 
 # graphtyper and deps
 RUN apt-get update -qq \
@@ -27,7 +27,7 @@ ADD configManta.py.ini /opt/manta-1.6.0.centos6_x86_64/bin/
 
 ENV PATH=/opt/manta-1.6.0.centos6_x86_64/bin:/opt/manta-1.6.0.centos6_x86_64/libexec/:/opt/:manta-1.6.0.centos6_x86_64/lib/python/:$PATH
 
-## conda + svimmer
+## conda + jasminesv
 WORKDIR /opt
 ENV PATH=/opt/miniconda/bin:$PATH
 RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
@@ -35,7 +35,7 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
       conda config --add channels bioconda && \
       conda config --add channels conda-forge && \
-      conda install -y jasminesv
+      conda install -y jasminesv">=1.1.2"
 
 
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
