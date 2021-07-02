@@ -6,7 +6,7 @@ include { split_by_size } from "./split"
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/manta-paragraph:v0.2.4'
+    container = 'docker://brentp/manta-paragraph:v0.2.6'
     publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -38,7 +38,7 @@ rm -rf results/
 }
 
 process jasmine {
-    container = 'docker://brentp/manta-paragraph:v0.2.4'
+    container = 'docker://brentp/manta-paragraph:v0.2.6'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -78,7 +78,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.2.5'
+  container = 'docker://brentp/manta-paragraph:v0.2.6'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -116,7 +116,7 @@ bcftools index --threads 3 $output_file
 process square {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.2.4'
+  container = 'docker://brentp/manta-paragraph:v0.2.6'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)

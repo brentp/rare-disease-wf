@@ -35,7 +35,9 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
       conda config --add channels bioconda && \
       conda config --add channels conda-forge && \
-      conda install -y jasminesv">=1.1.2"
+      conda install -y jasminesv">=1.1.2" && \
+      conda clean -afy && \
+      find /opt/miniconda/ -follow -type f -name '*.a' -delete
 
 
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
