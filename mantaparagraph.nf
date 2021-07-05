@@ -96,8 +96,9 @@ process paragraph_duphold {
 
   """
 dp=\$(tiwih meandepth $bam)
+tsample=\$(tiwih samplename $bam)
 echo "id\tpath\tdepth\tread length" > sample.manifest
-echo "$sample\t$bam\t\$dp\t150" >> sample.manifest
+echo "\$tsample\t$bam\t\$dp\t150" >> sample.manifest
 M=\$((dp * 5))
 cat sample.manifest
 
@@ -156,6 +157,10 @@ Required Arguments:
 
    --fasta           Path to reference fasta
 
+   --gff             Path to gff3 file for annotation with bcftools csq.
+                     can be downloaded from Ensembl. e.g. for human:
+                     ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
+                     ftp://ftp.ensembl.org/pub/grch37/release-84/gff3/homo_sapiens/
    """)
 
 }
@@ -166,6 +171,9 @@ params.ped = false
 if(!params.ped) { exit 1, "--ped is required" }
 params.fasta = false
 if(!params.fasta) { exit 1, "--fasta is required" }
+params.gff = false
+if(!params.gff) { exit 1, "--gff is required" }
+
 
 
 workflow {
