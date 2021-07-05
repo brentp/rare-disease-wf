@@ -65,7 +65,7 @@ process jasmine {
         # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
         jasmine --file_list=${workDir}/vcfs.list out_file=${output_file}
         tiwih setsvalt --drop-bnds --inv-2-ins -o ${output_file}.tmp.vcf.gz $output_file
-        bcftools sort --temp-dir $TMPDIR -m 2G -O z -o ${output_file} ${output_file}.tmp.vcf.gz
+        bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} ${output_file}.tmp.vcf.gz
         bcftools index --tbi $output_file
         """
     } else {
