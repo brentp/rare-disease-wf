@@ -1,7 +1,6 @@
 nextflow.enable.dsl=2
 
-include { split_by_size } from "./split"
-
+include  { find_index } from './nf/common'
 
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
@@ -138,6 +137,37 @@ process square {
   """
 }
 
+params.help = false
+if (params.help) {
+    log.info("""
+-------------------------------------------------------------------------
+rare-disease-wf sv
+
+Required Arguments:
+
+   --xams            A glob or string with **comma separatd paths to
+                     bams or crams. Sample names should match those in the
+                     --ped argument
+
+   --ped             A pedigree (or .fam) file with columns of:
+                         $family_id\t$sample_id\t$paternal_id\t$maternal_id\t$sex\t$phenotype
+                     see: https://gatk.broadinstitute.org/hc/en-us/articles/360035531972-PED-Pedigree-format
+
+
+   --fasta           Path to reference fasta
+
+   """)
+
+}
+
+params.xams = false
+if(!params.xams) { exit 1, "--xams is required" }
+params.ped = false
+if(!params.ped) { exit 1, "--ped is required" }
+params.fasta = false
+if(!params.fasta) { exit 1, "--fasta is required" }
+
+
 workflow {
 
     //fasta = "/media/brentp/transcend/data/human/GRCh38_full_analysis_set_plus_decoy_hla.fa"
@@ -153,21 +183,13 @@ workflow {
     //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"]
     //]
 
-    samples = [
-     ["HG01051", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01051.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01051.final.cram.crai"],
-     ["HG01052", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01052.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01052.final.cram.crai"],
-     ["HG01053", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01053.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/HG01053.final.cram.crai"],
-     ["NA19256", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19256.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19256.final.cram.crai"],
-     ["NA19257", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19257.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19257.final.cram.crai"],
-     ["NA19258", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19258.final.cram", "/hpc/compgen/users/bpedersen/1kg-hc-trio/NA19258.final.cram.crai"]
-    ]
+    input = channel.fromPath(params.xams, checkIfExists: true) 
+                  | map { it -> tuple(it.baseName, it, find_index(it)) }
 
-    fasta = "/hpc/cog_bioinf/GENOMES.old/1KP_GRCh38/GRCh38_full_analysis_set_plus_decoy_hla.fa"
+    fasta = file(params.fasta, checkIfEsits: true)
+    fai = file(params.fasta + ".fai", checkIfEsits: true)
 
-
-    input = channel.fromList(samples)
-
-    manta_results = manta(input, fasta, fasta + ".fai")
+    manta_results = manta(input, fasta, fai)
 
     mr = manta_results | map { it -> it[0] }  | collect
     mds = manta_results | map { it -> it[1] }  | collect

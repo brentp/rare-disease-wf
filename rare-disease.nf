@@ -1,5 +1,7 @@
 nextflow.enable.dsl=2
 
+include  { find_index } from './nf/common'
+
 process DeepVariant {
     label "DeepVariant"
     container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
@@ -340,30 +342,6 @@ if(!params.model_type) { exit 1, "--model_type ('WGS' or 'WES') is required" }
 params.cohort_name = "rare-disease"
 params.output_dir = "results-rare-disease"
 
-def find_index(xam_path) {
-    base = "${xam_path}".take("${xam_path}".lastIndexOf('.'))
-    isbam = xam_path.name.endsWith(".bam")
-    if(isbam) {
-        if(file(base + ".bai").exists()){
-            return file(base + ".bai")
-        }
-        // .bam.bai
-        base = "${xam_path}"
-        if(file(base + ".bai").exists()){
-            return file(base + ".bai")
-        }
-        return "INDEX NOT FOUND"
-    }
-    if(file(base + ".crai").exists()){
-        return file(base + ".crai")
-    }
-    // .cram.crai
-    base = "${xam_path}"
-    if(file(base + ".crai").exists()){
-        return file(base + ".crai")
-    }
-    return "CRAM INDEX NOT FOUND"
-}
 
 
 workflow {
