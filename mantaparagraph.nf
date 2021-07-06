@@ -36,8 +36,42 @@ rm -rf results/
     """
 }
 
+process dysgu {
+    errorStrategy 'terminate' // TODO: change after debugging is done
+
+    container = 'docker://brentp/manta-paragraph:v0.2.7'
+    publishDir "results-rare-disease/dysgu-sample-vcfs/", mode: 'copy'
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    input:
+        tuple(val(sample_name), path(bam), path(index))
+        path(fasta)
+        path(fai)
+
+    output:
+        tuple(file("${output_file}"), file("${output_file}.tbi"))
+
+script:
+    output_file = "${sample_name}.dysgu.vcf.gz"
+    """
+# pl can be pr|pacbio|nanopore
+dp=\$(tiwih meandepth $bam)
+M=\$((dp * 5))
+dysgu run --clean \
+    --pl pe --mode pe \
+    -o dysgu.vcf \
+    -p ${task.cpus} \
+    --max-cov \$M \
+    $fasta \${TMPDIR}/dysgu.${sample_name} $bam
+
+bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} dysgu.vcf
+bcftools index --tbi ${output_file}
+    """
+
+}
+
 process jasmine {
-    container = 'docker://brentp/manta-paragraph:v0.2.6'
+    container = 'docker://brentp/manta-paragraph:v0.2.7'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -79,7 +113,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.2.6'
+  container = 'docker://brentp/manta-paragraph:v0.2.7'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -102,6 +136,7 @@ echo "\$tsample\t$bam\t\$dp\t150" >> sample.manifest
 M=\$((dp * 5))
 cat sample.manifest
 
+# this is the main paragraph entrypoint
 multigrmpy.py -i $site_vcf \
     -m sample.manifest \
     -r $fasta \
@@ -109,6 +144,8 @@ multigrmpy.py -i $site_vcf \
     -t ${task.cpus} \
     -M \$M
 
+
+# duphold adds depth annotations looking at coverage fold-change around Svs
 duphold -d -v t/genotypes.vcf.gz -b $bam -f $fasta -t 4 -o $output_file
 bcftools index --threads 3 $output_file
   """
@@ -118,7 +155,7 @@ bcftools index --threads 3 $output_file
 process square {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/manta-paragraph:v0.2.6'
+  container = 'docker://brentp/manta-paragraph:v0.2.7'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
@@ -198,11 +235,16 @@ workflow {
     fai = file(params.fasta + ".fai", checkIfEsits: true)
 
     manta_results = manta(input, fasta, fai)
+    dysgu_results = dysgu(input, fasta, fai)
 
     mr = manta_results | map { it -> it[0] }  | collect
-    mds = manta_results | map { it -> it[1] }  | collect
+    dr = dysgu_results | map { it -> it[0] }  | collect
 
-    sv_merged = jasmine(mr, fasta + ".fai")
+    svs = mr.concat(dr)
+
+    //mds = manta_results | map { it -> it[1] }  | collect
+
+    sv_merged = jasmine(svs, fasta + ".fai")
 
     genotyped = paragraph_duphold(sv_merged, input, fasta, fasta + ".fai")
 
