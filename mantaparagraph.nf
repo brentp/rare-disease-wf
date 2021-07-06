@@ -54,7 +54,7 @@ process dysgu {
 script:
     output_file = "${sample_name}.dysgu.vcf.gz"
     """
-# pl can be pr|pacbio|nanopore
+# pl can be pe|pacbio|nanopore
 dp=\$(tiwih meandepth $bam)
 M=\$((dp * 5))
 dysgu run --clean \

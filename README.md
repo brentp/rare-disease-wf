@@ -68,3 +68,21 @@ Development and research is underway so that it will:
  1. Use GTex + phenotypes to further prioritize variants in a family and phenotype-specific way, such that, for example
     variants in genes that are not expressed in relevant tissues are down-weighted.
  1. Provide a graphical-user-interface so that sorting, filtering, note-taking, sharing is simplified
+
+
+## Software Used
+
++ [DeepVariant](https://github.com/google/deepvariant) Variant Calling with Deep Learning. https://doi.org/10.1038/nbt.4235
++ [GLNexus](https://github.com/dnanexus-rnd/GLnexus) Joint variant calling. http://dx.doi.org/10.1101/343970
++ [bcftools](https://github.com/samtools/bcftools) BCF/VCF manipulation. https://doi.org/10.1093/gigascience/giab008
++ [bcftools csq](https://github.com/samtools/bcftools) variant consequence annotation. https://doi.org/10.1093/bioinformatics/btx100
++ [htslib](https://github.com/samtools/htslib) C libary for genomics data. https://doi.org/10.1093/gigascience/giab007
++ [slivar](https://github.com/brentp/slivar) variant filtering and annotation. https://doi.org/10.1101/2020.08.13.249532
++ [igv.js](https://github.com/igvteam/igv.js/). javascript genomics viewer. https://doi.org/10.1101/2020.05.03.075499
++ [nextflow](https://nextflow.io/) scientific workflows. https://doi.org/10.1038/nbt.3820
++ [manta](https://github.com/Illumina/manta) structural variant caller. https://doi.org/10.1093/bioinformatics/btv710
++ [dysgu](https://github.com/kcleal/dysgu) structural variant caller. https://doi.org/10.1101/2021.05.28.446147 
++ [paragraph](https://github.com/Illumina/paragraph) structural variant genotyper. https://doi.org/10.1186/s13059-019-1909-7
++ [jasmine](https://github.com/mkirsche/Jasmine) structural variant merging. https://doi.org/10.1101/2021.05.27.445886
++ [duphold](https://github.com/brentp/duphold) structural variant depth annotation. https://doi.org/10.1093/gigascience/giz040
++ [snpEff](http://pcingola.github.io/SnpEff/) variant consequence annotation. https://doi.org/10.4161/fly.19695
