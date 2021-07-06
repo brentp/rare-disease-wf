@@ -31,15 +31,17 @@ ENV PATH=/opt/manta-1.6.0.centos6_x86_64/bin:/opt/manta-1.6.0.centos6_x86_64/lib
 ## conda + jasminesv
 WORKDIR /opt
 ENV PATH=/opt/miniconda/bin:$PATH
-RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ \
-	    && conda install -yc bioconda pysam bcftools paragraph htslib && \
+RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
       conda config --add channels bioconda && \
       conda config --add channels conda-forge && \
-      conda install -y jasminesv">=1.1.2" && \
-    git clone --recursive https://github.com/kcleal/dysgu.git && \
-    conda install -yc anaconda gxx_linux-64 gcc_linux-64 autoconf make && \
-    conda init bash
+      conda update -n base -yc defaults conda && \
+      conda install -yc anaconda gxx_linux-64 gcc_linux-64 autoconf make && \
+      conda install -c conda-forge curl && \
+      conda init bash && \
+      conda install -yc bioconda jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
+      git clone --recursive https://github.com/kcleal/dysgu.git && \
+      true
 
 ## dysgu && svpack
 SHELL ["/bin/bash", "-c"]
