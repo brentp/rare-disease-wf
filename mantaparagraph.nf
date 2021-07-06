@@ -152,13 +152,15 @@ bcftools index --threads 3 $output_file
 
 }
 
-process square {
+process square_svcsq {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
   container = 'docker://brentp/manta-paragraph:v0.2.7'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
+         file(gff)
+         val(cohort_name)
   output: tuple(file("${output_file}"), file("${output_file}.csi"))
 
   script:
@@ -167,10 +169,11 @@ process square {
             fh.write(vcf[0].toString()); fh.write("\n")
         }
   }
-  output_file = "mantaparagraph.vcf.gz"
+  output_file = "${cohort_name}.svs.vcf.gz"
   """
   bcftools merge -m none --threads 3 -O u --file-list $workDir/joint.vcfs.list \
-    | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O z -o $output_file
+    | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O z -o ${output_file}.tmp.vcf.gz
+  svpack consequence ${output_file}.tmp.vcf.gz $gff | bgzip -c > $output_file
   bcftools index --threads 3 $output_file
   """
 }
@@ -198,6 +201,12 @@ Required Arguments:
                      can be downloaded from Ensembl. e.g. for human:
                      ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
                      ftp://ftp.ensembl.org/pub/grch37/release-84/gff3/homo_sapiens/
+
+Optional Arguments:
+-------------------
+
+   --cohort_name     optional name for the cohort (default: "rare-disease")
+   --output_dir      optional name for where to place results (default: "results-rare-disease")
    """)
 
 }
@@ -210,23 +219,11 @@ params.fasta = false
 if(!params.fasta) { exit 1, "--fasta is required" }
 params.gff = false
 if(!params.gff) { exit 1, "--gff is required" }
-
+params.cohort_name = "rare-disease"
+params.output_dir = "results-rare-disease"
 
 
 workflow {
-
-    //fasta = "/media/brentp/transcend/data/human/GRCh38_full_analysis_set_plus_decoy_hla.fa"
-    //samples = [
-    //    ["HG01051",
-    //   "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
-    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"],
-    //    ["HG01052",
-    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram",
-    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01052.final.cram.crai"],
-    //    ["HG01053",
-    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram",
-    //    "/media/brentp/transcend/data/1kg-pur-trio/HG01051.final.cram.crai"]
-    //]
 
     input = channel.fromPath(params.xams, checkIfExists: true) 
                   | map { it -> tuple(it.baseName, it, find_index(it)) }
@@ -248,6 +245,6 @@ workflow {
 
     genotyped = paragraph_duphold(sv_merged, input, fasta, fasta + ".fai")
 
-    square(genotyped.toList()) | view
+    square_svcsq(genotyped.toList(), params.gff, params.cohort_name) | view
 
 }

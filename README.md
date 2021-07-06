@@ -86,3 +86,4 @@ Development and research is underway so that it will:
 + [jasmine](https://github.com/mkirsche/Jasmine) structural variant merging. https://doi.org/10.1101/2021.05.27.445886
 + [duphold](https://github.com/brentp/duphold) structural variant depth annotation. https://doi.org/10.1093/gigascience/giz040
 + [snpEff](http://pcingola.github.io/SnpEff/) variant consequence annotation. https://doi.org/10.4161/fly.19695
++ [svpack](https://github.com/amwenger/svpack/) structural variant annotation.
