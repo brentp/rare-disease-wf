@@ -35,11 +35,11 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
 	    rm Miniconda3-py37_4.9.2-Linux-x86_64.sh && \
       conda config --add channels bioconda && \
       conda config --add channels conda-forge && \
-      conda update -n base -yc defaults conda && \
-      conda install -yc anaconda gxx_linux-64 gcc_linux-64 autoconf make && \
-      conda install -c conda-forge curl && \
+      conda update --freeze-installed -n base -yc defaults conda && \
+      conda install --freeze-installed -yc anaconda nomkl gxx_linux-64 gcc_linux-64 autoconf make && \
+      conda install -c conda-forge nomkl curl && \
       conda init bash && \
-      conda install -yc bioconda jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
+      conda install --freeze-installed -yc bioconda nomkl jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
       git clone --recursive https://github.com/kcleal/dysgu.git && \
       true
 
@@ -47,13 +47,14 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
 SHELL ["/bin/bash", "-c"]
 RUN \
     cd dysgu/dysgu/htslib && \
+    git checkout 1.11 && \
     conda init bash && \
     . /opt/miniconda/etc/profile.d/conda.sh && \
     eval "$(conda shell.bash hook)" && \
     conda activate root && \
     autoheader && autoconf && ./configure && \
     make -j 4 install && cd ../.. && \
-    conda install -y --file requirements.txt  && \
+    conda install --freeze-installed -y --file requirements.txt  && \
     for f in dysgu/*.pyx; do cython --cplus $f; done && \
     python setup.py install && \
     dysgu --version && \
