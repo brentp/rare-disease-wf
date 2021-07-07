@@ -9,7 +9,6 @@ ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /u
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/
 ADD https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh /opt
 ADD https://github.com/Illumina/manta/releases/download/v1.6.0/manta-1.6.0.centos6_x86_64.tar.bz2 /opt
-#ADD https://github.com/DecodeGenetics/graphtyper/releases/download/v2.7.1/graphtyper /usr/local/bin
 ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin
 ADD https://github.com/brentp/duphold/releases/download/$duphold_version/duphold /usr/local/bin
 
@@ -40,7 +39,7 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
       conda install -c conda-forge nomkl curl && \
       conda init bash && \
       conda install --freeze-installed -yc bioconda nomkl jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
-      git clone --recursive https://github.com/kcleal/dysgu.git && \
+      git clone -b cram --recursive https://github.com/brentp/dysgu.git && \
       true
 
 ## dysgu && svpack
@@ -65,7 +64,8 @@ RUN \
 
 RUN \
     conda clean -afy && \
-    find /opt/miniconda/ -follow -type f -name '*.a' -delete
+    find /opt/miniconda/ -follow -type f -name '*.a' -delete && \
+		find / -type f -name "*.a" -delete
 
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
 	    curl -SsLo $f https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcfgraph/vcfgraph.py; \
