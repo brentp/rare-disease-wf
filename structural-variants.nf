@@ -54,6 +54,7 @@ process dysgu {
 script:
     output_file = "${sample_name}.dysgu.vcf.gz"
     """
+dp=\$(tiwih meandepth $bam)
 M=\$((dp * 5))
 dysgu run --clean \
     --pl pe --mode pe \
