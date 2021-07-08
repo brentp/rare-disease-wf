@@ -5,7 +5,7 @@ include  { find_index } from './nf/common'
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.3'
+    container = 'docker://brentp/rare-disease-sv:v0.0.5'
     publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -39,7 +39,7 @@ rm -rf results/
 process dysgu {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.3'
+    container = 'docker://brentp/rare-disease-sv:v0.0.5'
     publishDir "results-rare-disease/dysgu-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -53,35 +53,27 @@ process dysgu {
 
 script:
     output_file = "${sample_name}.dysgu.vcf.gz"
-    is_cram = "${bam}".endsWith(".cram")
     """
-# pl can be pe|pacbio|nanopore
-dp=\$(tiwih meandepth $bam)
-
-if [[ "$is_cram" == "true" ]]; then
-    samtools view --write-index --threads ${task.cpus} -bT $fasta -o x.${sample_name}.bam $bam
-else
-    ln -sf $bam x.${sample_name}.bam
-    ln -sf ${index} x.${sample_name}.bam.bai
-fi
-
 M=\$((dp * 5))
 dysgu run --clean \
     --pl pe --mode pe \
-    -o dysgu.vcf \
+    -o dysgu.${sample_name}.vcf \
     -p ${task.cpus} \
     --max-cov \$M \
     --thresholds 0.25,0.25,0.25,0.25,0.25 \
-    $fasta \${TMPDIR}/dysgu.${sample_name} x.${sample_name}.bam
+    $fasta \${TMPDIR}/dysgu.${sample_name} ${bam}
 
-bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} dysgu.vcf
+#$fasta \${TMPDIR}/dysgu.${sample_name} x.${sample_name}.bam
+#cp dysgu.vcf ~/dysgu.${sample_name}.vcf
+
+bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} dysgu.${sample_name}.vcf
 bcftools index --tbi ${output_file}
     """
 
 }
 
 process jasmine {
-    container = 'docker://brentp/rare-disease-sv:v0.0.3'
+    container = 'docker://brentp/rare-disease-sv:v0.0.5'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -123,7 +115,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.3'
+  container = 'docker://brentp/rare-disease-sv:v0.0.5'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -165,7 +157,7 @@ bcftools index --threads 3 $output_file
 process square_svcsq {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.3'
+  container = 'docker://brentp/rare-disease-sv:v0.0.5'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
