@@ -39,7 +39,7 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
       conda install -c conda-forge nomkl curl && \
       conda init bash && \
       conda install --freeze-installed -yc bioconda nomkl jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
-      git clone -b cram --recursive https://github.com/brentp/dysgu.git && \
+      git clone -b END --recursive https://github.com/brentp/dysgu.git && \
       true
 
 ## dysgu && svpack
