@@ -5,7 +5,7 @@ include  { find_index } from './nf/common'
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.5'
+    container = 'docker://brentp/rare-disease-sv:v0.0.6'
     publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -39,7 +39,7 @@ rm -rf results/
 process dysgu {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.5'
+    container = 'docker://brentp/rare-disease-sv:v0.0.6'
     publishDir "results-rare-disease/dysgu-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -64,8 +64,7 @@ dysgu run --clean \
     --thresholds 0.25,0.25,0.25,0.25,0.25 \
     $fasta \${TMPDIR}/dysgu.${sample_name} ${bam}
 
-#$fasta \${TMPDIR}/dysgu.${sample_name} x.${sample_name}.bam
-#cp dysgu.vcf ~/dysgu.${sample_name}.vcf
+#cp dysgu.${sample_name}.vcf ~/dysgu.${sample_name}.vcf
 
 bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} dysgu.${sample_name}.vcf
 bcftools index --tbi ${output_file}
@@ -74,7 +73,7 @@ bcftools index --tbi ${output_file}
 }
 
 process jasmine {
-    container = 'docker://brentp/rare-disease-sv:v0.0.5'
+    container = 'docker://brentp/rare-disease-sv:v0.0.6'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -116,7 +115,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.5'
+  container = 'docker://brentp/rare-disease-sv:v0.0.6'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -158,7 +157,7 @@ bcftools index --threads 3 $output_file
 process square_svcsq {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.5'
+  container = 'docker://brentp/rare-disease-sv:v0.0.6'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
