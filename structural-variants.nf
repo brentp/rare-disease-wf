@@ -28,10 +28,8 @@ python2 ./runWorkflow.py -j ${task.cpus}
 
 convertInversion.py \$(which samtools) $fasta results/variants/diploidSV.vcf.gz \
     | bcftools view -O z -o ${sample_name}.diploidSV.vcf.gz
+bcftools index -f --tbi ${sample_name}.diploidSV.vcf.gz
 
-mv results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
-bcftools index -f --tbi ${sample_name}.candidateSV.vcf.gz
-mv results/variants/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
 rm -rf results/
     """
 }
@@ -64,9 +62,10 @@ dysgu run --clean \
     --thresholds 0.25,0.25,0.25,0.25,0.25 \
     $fasta \${TMPDIR}/dysgu.${sample_name} ${bam}
 
-#cp dysgu.${sample_name}.vcf ~/dysgu.${sample_name}.vcf
+awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
 
-bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} dysgu.${sample_name}.vcf
+bcftools view -O u -R cr.bed.gz dysgu.${sample_name}.vcf \
+    | bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} -
 bcftools index --tbi ${output_file}
     """
 
