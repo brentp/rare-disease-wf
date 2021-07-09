@@ -15,13 +15,12 @@ process manta {
         path(fai)
 
     output:
-        tuple(file("${sample_name}.diploidSV.vcf.gz"), file("${sample_name}.meandepth.txt"))
+        tuple(file("${sample_name}.diploidSV.vcf.gz"), file("${sample_name}.diploidSV.vcf.gz.tbi"), val(sample_name))
 
     script:
     """
 # limit to larger chroms ( > 10MB)
 awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
-tiwih meandepth --scale-by-read-length $bam > ${sample_name}.meandepth.txt
 
 tabix cr.bed.gz
 configManta.py --bam ${bam} --referenceFasta $fasta --runDir . --callRegions cr.bed.gz
@@ -31,6 +30,7 @@ convertInversion.py \$(which samtools) $fasta results/variants/diploidSV.vcf.gz 
     | bcftools view -O z -o ${sample_name}.diploidSV.vcf.gz
 
 mv results/variants/candidateSV.vcf.gz ${sample_name}.candidateSV.vcf.gz
+bcftools index -f --tbi ${sample_name}.candidateSV.vcf.gz
 mv results/variants/candidateSmallIndels.vcf.gz ${sample_name}.candidateSmallIndels.vcf.gz
 rm -rf results/
     """
@@ -49,7 +49,7 @@ process dysgu {
         path(fai)
 
     output:
-        tuple(file("${output_file}"), file("${output_file}.tbi"))
+        tuple(file("${output_file}"), file("${output_file}.tbi"), val(sample_name))
 
 script:
     output_file = "${sample_name}.dysgu.vcf.gz"
@@ -72,6 +72,25 @@ bcftools index --tbi ${output_file}
 
 }
 
+process concat_by_sample {
+    errorStrategy 'terminate' // TODO: change after debugging is done
+
+    container = 'docker://brentp/rare-disease-sv:v0.0.6'
+    publishDir "results-rare-disease/sv-sample-merged/", mode: 'copy'
+    shell = ['/bin/bash', '-euo', 'pipefail']
+
+    input:
+        tuple(path(vcfs), path(indexes), val(sample_name))
+    output: file("${output_file}")
+
+    script:
+    output_file = "${sample_name}.concat-svs.vcf"
+    """
+    bcftools concat -a -O v -o ${output_file} *.vcf.gz
+    """
+}
+
+
 process jasmine {
     container = 'docker://brentp/rare-disease-sv:v0.0.6'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
@@ -88,17 +107,15 @@ process jasmine {
             sample_vcfs.each { vcf ->
                 // write .vcf even though it's really .vcf.gz since jasmine doesn't accept gz
                 // and we change the file below.
-                fh.write(vcf.toString().take(vcf.toString().lastIndexOf('.'))); fh.write("\n")
+                fh.write(vcf.toString()); fh.write("\n")
             }
     }
     // we don't merge if we only have a single sample.
     if(sample_vcfs.size() > 1) {
         """
         # jasmine can't do gzip.
-        cat $workDir/vcfs.list | xargs -I{} -P ${task.cpus} sh -c 'bcftools view -O v {}.gz -o {}'
-
+        jasmine -Xmx6g --threads ${task.cpus} --allow_intrasample --file_list=${workDir}/vcfs.list out_file=${output_file}
         # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
-        jasmine --file_list=${workDir}/vcfs.list out_file=${output_file}
         tiwih setsvalt --drop-bnds --inv-2-ins -o ${output_file}.tmp.vcf.gz $output_file
         bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} ${output_file}.tmp.vcf.gz
         bcftools index --tbi $output_file
@@ -236,12 +253,16 @@ workflow {
     manta_results = manta(input, fasta, fai)
     dysgu_results = dysgu(input, fasta, fai)
 
-    mr = manta_results | map { it -> it[0] } 
-    dr = dysgu_results | map { it -> it[0] } 
+    // vcf, sample name
+    mr = manta_results 
+    dr = dysgu_results
 
-    svs = mr.concat(dr) | collect
+    // group by sample name
+    sv_groups = mr.concat(dr) | groupTuple(by: 2)
 
-    //mds = manta_results | map { it -> it[1] }  | collect
+    sv_groups | view
+
+    svs = concat_by_sample(sv_groups) | collect
 
     sv_merged = jasmine(svs, fasta + ".fai")
 
