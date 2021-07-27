@@ -1,8 +1,9 @@
 FROM ubuntu:16.04
 
-ARG tiwih_version=v0.1.4
+ARG tiwih_version=v0.1.5
 ARG duphold_version=v0.2.3
 ARG slivar_version=v0.2.4
+ARG dysgu_version=v1.2.7
 
 
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
@@ -36,10 +37,10 @@ RUN sh Miniconda3-py37_4.9.2-Linux-x86_64.sh -b -p /opt/miniconda/ && \
       conda config --add channels conda-forge && \
       conda update --freeze-installed -n base -yc defaults conda && \
       conda install --freeze-installed -yc anaconda nomkl gxx_linux-64 gcc_linux-64 autoconf make && \
-      conda install -c conda-forge nomkl curl && \
+      conda install --freeze-installed -c conda-forge nomkl curl && \
       conda init bash && \
       conda install --freeze-installed -yc bioconda nomkl jasminesv">=1.1.2" samtools">=1.10" pysam bcftools paragraph">=2.3" htslib">=1.10" && \
-      git clone --recursive https://github.com/kcleal/dysgu.git  && \
+      git clone -b $dysgu_version --recursive https://github.com/kcleal/dysgu.git && \
       true
 
 ## dysgu && svpack
@@ -62,15 +63,16 @@ RUN \
     chmod +x /usr/local/bin/svpack && \
     svpack -h
 
-RUN \
-    conda clean -afy && \
-    find /opt/miniconda/ -follow -type f -name '*.a' -delete && \
-		find / -type f -name "*.a" -delete
-
 RUN for f in $(find   / -type f -name vcfgraph.py); do \
-	    curl -SsLo $f https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcfgraph/vcfgraph.py; \
-	    chmod a+x $f; \
+	    curl -SsLo $f https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcfgraph/vcfgraph.py;  \
+	    chmod a+x $f;   \
 	    d=$(dirname $(dirname $f)); \
 	    np="$d/vcf2paragraph/__init__.py" ; \
             curl -SsLo $np https://raw.githubusercontent.com/brentp/paragraph/bp-dev/src/python/lib/grm/vcf2paragraph/__init__.py; \
     done
+
+
+RUN \
+    conda clean -afy && \
+    find /opt/miniconda/ -follow -type f -name '*.a' -delete && \
+		find / -type f -name "*.a" -delete
