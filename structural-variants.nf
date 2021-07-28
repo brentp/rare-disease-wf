@@ -5,7 +5,7 @@ include  { find_index } from './nf/common'
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.6'
+    container = 'docker://brentp/rare-disease-sv:v0.0.11'
     publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -37,7 +37,7 @@ rm -rf results/
 process dysgu {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.6'
+    container = 'docker://brentp/rare-disease-sv:v0.0.11'
     publishDir "results-rare-disease/dysgu-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -62,10 +62,10 @@ dysgu run --clean \
     --thresholds 0.25,0.25,0.25,0.25,0.25 \
     $fasta \${TMPDIR}/dysgu.${sample_name} ${bam}
 
-awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai | bgzip -c > cr.bed.gz
+awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
 
-bcftools view -O u -R cr.bed.gz dysgu.${sample_name}.vcf \
-    | bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} -
+bcftools view -O u -T cr.bed -o ${sample_name}.R.bcf dysgu.${sample_name}.vcf
+bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} ${sample_name}.R.bcf
 bcftools index --tbi ${output_file}
     """
 
@@ -74,7 +74,7 @@ bcftools index --tbi ${output_file}
 process concat_by_sample {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.6'
+    container = 'docker://brentp/rare-disease-sv:v0.0.11'
     publishDir "results-rare-disease/sv-sample-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -91,12 +91,13 @@ process concat_by_sample {
 
 
 process jasmine {
-    container = 'docker://brentp/rare-disease-sv:v0.0.6'
+    container = 'docker://brentp/rare-disease-sv:v0.0.11'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
     input:
         val(sample_vcfs)
+	path(fasta)
         path(fai)
     output: tuple(file("${output_file}"), file("${output_file}.tbi"))
 
@@ -115,13 +116,13 @@ process jasmine {
         # jasmine can't do gzip.
         jasmine -Xmx6g --threads ${task.cpus} --allow_intrasample --file_list=${workDir}/vcfs.list out_file=${output_file}
         # NOTE: removing BNDs and setting min start to > 150 as paragraph fails if start < readlength
-        tiwih setsvalt --drop-bnds --inv-2-ins -o ${output_file}.tmp.vcf.gz $output_file
+        tiwih setsvalt --drop-bnds --inv-2-ins -o ${output_file}.tmp.vcf.gz $fasta $output_file
         bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} ${output_file}.tmp.vcf.gz
         bcftools index --tbi $output_file
         """
     } else {
         """
-        tiwih setsvalt --drop-bnds ${sample_vcfs[0]} -o $output_file
+        tiwih setsvalt --drop-bnds -o ${output_file} $fasta ${sample_vcfs[0]}
         tabix $output_file
         """
     }
@@ -131,7 +132,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.6'
+  container = 'docker://brentp/rare-disease-sv:v0.0.11'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -173,7 +174,7 @@ bcftools index --threads 3 $output_file
 process square_svcsq {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.6'
+  container = 'docker://brentp/rare-disease-sv:v0.0.11'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
@@ -263,7 +264,7 @@ workflow {
 
     svs = concat_by_sample(sv_groups) | collect
 
-    sv_merged = jasmine(svs, fasta + ".fai")
+    sv_merged = jasmine(svs, fasta, fasta + ".fai")
 
     genotyped = paragraph_duphold(sv_merged, input, fasta, fasta + ".fai")
 
