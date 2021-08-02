@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-ARG tiwih_version=v0.1.5
+ARG tiwih_version=v0.1.6
 ARG duphold_version=v0.2.3
 ARG slivar_version=v0.2.4
 ARG dysgu_version=v1.2.7
@@ -58,7 +58,7 @@ RUN \
     for f in dysgu/*.pyx; do cython --cplus $f; done && \
     python setup.py install && \
     dysgu --version && \
-    git clone https://github.com/amwenger/svpack/ && \
+    git clone https://github.com/amwenger/svpack/ &&  \
     cp ./svpack/svpack /usr/local/bin && \
     chmod +x /usr/local/bin/svpack && \
     svpack -h
