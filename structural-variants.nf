@@ -5,7 +5,7 @@ include  { find_index } from './nf/common'
 process manta {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.11'
+    container = 'docker://brentp/rare-disease-sv:v0.1.0'
     publishDir "results-rare-disease/manta-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -37,7 +37,7 @@ rm -rf results/
 process dysgu {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.11'
+    container = 'docker://brentp/rare-disease-sv:v0.1.0'
     publishDir "results-rare-disease/dysgu-sample-vcfs/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -74,7 +74,7 @@ bcftools index --tbi ${output_file}
 process concat_by_sample {
     errorStrategy 'terminate' // TODO: change after debugging is done
 
-    container = 'docker://brentp/rare-disease-sv:v0.0.11'
+    container = 'docker://brentp/rare-disease-sv:v0.1.0'
     publishDir "results-rare-disease/sv-sample-merged/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -91,7 +91,7 @@ process concat_by_sample {
 
 
 process jasmine {
-    container = 'docker://brentp/rare-disease-sv:v0.0.11'
+    container = 'docker://brentp/rare-disease-sv:v0.1.0'
     publishDir "results-rare-disease/jasmine-merged-sites/", mode: 'copy'
     shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -132,7 +132,7 @@ process jasmine {
 process paragraph_duphold {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.11'
+  container = 'docker://brentp/rare-disease-sv:v0.1.0'
 
   publishDir "results-rare-disease/paragraph-genotyped-sample-vcfs/", mode: 'copy'
 
@@ -174,25 +174,27 @@ bcftools index --threads 3 $output_file
 process square_svcsq {
   errorStrategy 'terminate' // TODO: change after debugging is done
   shell = ['/bin/bash', '-euo', 'pipefail']
-  container = 'docker://brentp/rare-disease-sv:v0.0.11'
+  container = 'docker://brentp/rare-disease-sv:v0.1.0'
   publishDir "results-rare-disease/", mode: 'copy'
 
   input: val(sample_vcfs)
-         file(gff)
+         path(gff_path)
          val(cohort_name)
   output: tuple(file("${output_file}"), file("${output_file}.csi"))
 
   script:
+  print(sample_vcfs)
   file("$workDir/joint.vcfs.list").withWriter { fh ->
         sample_vcfs.each { vcf ->
-            fh.write(vcf[0].toString()); fh.write("\n")
+	    fh.write(vcf[0].toString()); fh.write("\n")
         }
   }
   output_file = "${cohort_name}.svs.vcf.gz"
   """
   bcftools merge -m none --threads 3 -O u --file-list $workDir/joint.vcfs.list \
-    | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O z -o ${output_file}.tmp.vcf.gz
-  svpack consequence ${output_file}.tmp.vcf.gz $gff | bgzip -c > $output_file
+    | bcftools annotate --threads 3 -x "INFO/GRMPY_ID" -O v -o ${output_file}.tmp.vcf.gz
+  gzip -dc ${gff_path} > unc.gff
+  svpack consequence ${output_file}.tmp.vcf.gz unc.gff | bgzip -c > $output_file
   bcftools index --threads 3 $output_file
   """
 }
@@ -244,11 +246,11 @@ params.output_dir = "results-rare-disease"
 
 workflow {
 
-    input = channel.fromPath(params.xams, checkIfExists: true) 
-                  | map { it -> tuple(it.baseName, it, find_index(it)) }
+    input = channel.fromPath(params.xams, checkIfExists: true) \
+                  | map { x -> tuple(x.baseName, x, find_index(x)) }
 
-    fasta = file(params.fasta, checkIfEsits: true)
-    fai = file(params.fasta + ".fai", checkIfEsits: true)
+    fasta = file(params.fasta, checkIfExists: true)
+    fai = file(params.fasta + ".fai", checkIfExists: true)
 
     manta_results = manta(input, fasta, fai)
     dysgu_results = dysgu(input, fasta, fai)
@@ -260,14 +262,15 @@ workflow {
     // group by sample name
     sv_groups = mr.concat(dr) | groupTuple(by: 2)
 
-    sv_groups | view
-
     svs = concat_by_sample(sv_groups) | collect
 
     sv_merged = jasmine(svs, fasta, fasta + ".fai")
 
     genotyped = paragraph_duphold(sv_merged, input, fasta, fasta + ".fai")
 
-    square_svcsq(genotyped.toList(), params.gff, params.cohort_name) | view
+    gt = genotyped.toList()
+    gt | view
+
+    square_svcsq(gt, file(params.gff, checkIfExists:true), params.cohort_name) | view
 
 }

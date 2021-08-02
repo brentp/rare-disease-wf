@@ -75,7 +75,6 @@ process glnexus_anno_slivar {
         """
 # GRCh38.99
 # GRCh37.75
-# TODO: can't yet get snpEff working 
 
 glnexus_cli \
     -t ${task.cpus} \
