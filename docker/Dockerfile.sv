@@ -2,9 +2,8 @@ FROM ubuntu:16.04
 
 ARG tiwih_version=v0.1.6
 ARG duphold_version=v0.2.3
-ARG slivar_version=v0.2.4
+ARG slivar_version=v0.2.5
 ARG dysgu_version=v1.2.7
-
 
 ADD https://github.com/brentp/slivar/releases/download/$slivar_version/slivar /usr/local/bin
 ADD https://raw.githubusercontent.com/brentp/slivar/$slivar_version/js/slivar-functions.js /opt/slivar/

@@ -1,9 +1,9 @@
 FROM ubuntu:18.04
 MAINTAINER brentp
 
-ARG slivar_version=v0.2.4
+ARG slivar_version=v0.2.5
 ARG htslib_version=1.12
-ARG glnexus_version=v1.3.1
+ARG glnexus_version=v1.4.1
 ARG tiwih_version=v0.1.6
 ARG jigv_version=v0.1.8
 
@@ -69,6 +69,6 @@ RUN wget -qO - https://storage.googleapis.com/gnomad-public/release/2.1.1/constr
        | cut -f 1,21,24 | tail -n+2 \
        | awk '{ printf("%s\tpLI=%.3g;oe_lof=%.5g\n", $1, $2, $3)}' > /opt/slivar/pli.lookup
 
-RUN wget -qO - ftp://ftp.ncbi.nlm.nih.gov/pub/clinvar/gene_condition_source_id \
+RUN wget -qO - https://ftp.ncbi.nlm.nih.gov/pub/clinvar/gene_condition_source_id \
     | cut -f 2,5 \
     | grep -v ^$'\t' > /opt/slivar/clinvar_gene_desc.txt

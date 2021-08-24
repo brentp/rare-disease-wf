@@ -50,7 +50,7 @@ echo "TMPDIR:\$TMPDIR"
 include { split; split_by_size } from "./split"
 
 process glnexus_anno_slivar {
-    container = 'docker://brentp/rare-disease:v0.2.0'
+    container = 'docker://brentp/rare-disease:v0.2.1'
     shell = ['/bin/bash', '-euo', 'pipefail']
     publishDir "${params.output_dir}/joint-by-chrom/", mode: 'copy'
 
@@ -92,7 +92,7 @@ bcftools index --threads 6 $output_file
 }
 
 process slivar_rare_disease {
-  container = 'docker://brentp/rare-disease:v0.2.0'
+  container = 'docker://brentp/rare-disease:v0.2.1'
   publishDir "${params.output_dir}/joint-by-chrom-slivar/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -171,7 +171,7 @@ wait
 
 process slivar_merge_tsvs {
   // TSVS are by chromosome. just concatentate them here to get a single file.
-  container = 'docker://brentp/rare-disease:v0.2.0'
+  container = 'docker://brentp/rare-disease:v0.2.1'
   publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -197,7 +197,7 @@ process slivar_merge_tsvs {
 }
 
 process slivar_sum_counts {
-  container = 'docker://brentp/rare-disease:v0.2.0'
+  container = 'docker://brentp/rare-disease:v0.2.1'
   publishDir "${params.output_dir}/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
 
@@ -213,7 +213,7 @@ process slivar_sum_counts {
 }
 
 process slivar_split_by_fam {
-  container = 'docker://brentp/rare-disease:v0.2.0'
+  container = 'docker://brentp/rare-disease:v0.2.1'
   publishDir "${params.output_dir}/slivar_split_by_fam_mode", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   input: 
@@ -244,7 +244,7 @@ done
 }
 
 process generate_jigv_pages {
-  container = 'docker://brentp/rare-disease:v0.2.0'
+  container = 'docker://brentp/rare-disease:v0.2.1'
   publishDir "${params.output_dir}/jigv_plots/", mode: 'copy'
   shell = ['/bin/bash', '-euo', 'pipefail']
   cache false
