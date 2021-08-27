@@ -54,17 +54,19 @@ script:
     """
 dp=\$(tiwih meandepth $bam)
 M=\$((dp * 5))
+
+awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
+
 dysgu run --clean \
     --pl pe --mode pe \
     -o dysgu.${sample_name}.vcf \
     -p ${task.cpus} \
     --max-cov \$M \
     --thresholds 0.25,0.25,0.25,0.25,0.25 \
+    --search cr.bed \
     $fasta \${TMPDIR}/dysgu.${sample_name} ${bam}
 
-awk '\$2 > 10000000 || \$1 ~/(M|MT)\$/ { print \$1"\t0\t"\$2 }' $fai > cr.bed
-
-bcftools view -O u -T cr.bed -o ${sample_name}.R.bcf dysgu.${sample_name}.vcf
+bcftools view -O u -o ${sample_name}.R.bcf dysgu.${sample_name}.vcf
 bcftools sort --temp-dir \$TMPDIR -m 2G -O z -o ${output_file} ${sample_name}.R.bcf
 bcftools index --tbi ${output_file}
     """
