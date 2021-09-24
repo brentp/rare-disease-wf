@@ -24,7 +24,6 @@ params.fasta = false
 if(!params.fasta) { exit 1, "--fasta reference is required" }
 params.chunk_size = 250000000
 
-
 process octopus_trio {
     input: each(region)
            tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
@@ -34,8 +33,8 @@ process octopus_trio {
     script:
        output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
-echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} --one-based-indexing \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
+echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
     --bamout "${sample.id}.realigned.bams/" \
     -o ${output_path}
 touch $output_path
@@ -63,7 +62,7 @@ touch $output_path
        """
 }
 
-include { split; split_by_size } from "./split"
+include { split_by_size } from "./split"
 
 @groovy.transform.ToString(includeNames=true, ignoreNulls=true, excludes=["dad", "mom"])
 public class Sample {
