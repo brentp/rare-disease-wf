@@ -22,15 +22,17 @@ params.ped = false
 if(!params.ped) { exit 1, "--ped is required" }
 params.fasta = false
 if(!params.fasta) { exit 1, "--fasta reference is required" }
+params.chunk_size = 250000000
 
 
 process octopus_trio {
-    input: tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
+    input: each(region)
+           tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
            path(ref)
            path(fai)
     output: path("${output_path}")
     script:
-       output_path="${sample.id}.trio.vcf"
+       output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
 echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
@@ -41,12 +43,13 @@ touch $output_path
 }
 
 process octopus_fam_or_single {
-    input: tuple(val(family_id), path(bams))
+    input: each(region)
+           tuple(val(family_id), path(bams))
            path(ref)
            path(fai)
     output: path("${output_path}")
     script:
-       output_path="${family_id}.notrio.vcf"
+       output_path="${family_id}.${region}.notrio.vcf"
        bamout="${family_id}.realigned.bams.fam/"
        if (bams.size() == 1 ) {
          bamout += "octopus.${family_id}.bam"
@@ -112,8 +115,10 @@ workflow {
         by_fam[(s.family_id)].add(s)
     }
 
+    regions = split_by_size(params.fasta + ".fai", params.chunk_size).splitText() | map { s -> s.replaceAll("\\s", "") }
+
     trs = channel.fromList(trios) | map { it -> [it, it.path, it.dad.path, it.mom.path] } 
-    octopus_trio(trs, params.fasta, params.fasta + ".fai") | view
+    octopus_trio(regions, trs, params.fasta, params.fasta + ".fai") | view
 
     // now add families to list 
     fams = []
@@ -127,6 +132,6 @@ workflow {
        }
     }
     fams_ch = channel.fromList(fams) 
-    octopus_fam_or_single(fams_ch, params.fasta, params.fasta + ".fai") | view
+    octopus_fam_or_single(regions, fams_ch, params.fasta, params.fasta + ".fai") | view
 
 }
