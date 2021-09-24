@@ -28,14 +28,15 @@ process octopus_trio {
     input: tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
            path(ref)
            path(fai)
-    output: stdout
+    output: path("${output_path}")
     script:
        output_path="${sample.id}.trio.vcf"
        """
 echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
-    -p Y=2 chrY=2 -w \$TMPDIR \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
     --bamout "${sample.id}.realigned.bams/" \
     -o ${output_path}
+touch $output_path
        """
 }
 
@@ -43,7 +44,7 @@ process octopus_fam_or_single {
     input: tuple(val(family_id), path(bams))
            path(ref)
            path(fai)
-    output: stdout
+    output: path("${output_path}")
     script:
        output_path="${family_id}.notrio.vcf"
        bamout="${family_id}.realigned.bams.fam/"
@@ -52,15 +53,17 @@ process octopus_fam_or_single {
        }
        """
 echo octopus -R $ref -I $bams \
-    -p Y=2 chrY=2 -w \$TMPDIR \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
     --bamout ${bamout} \
     -o ${output_path}
+touch $output_path
        """
 }
 
+include { split; split_by_size } from "./split"
 
 @groovy.transform.ToString(includeNames=true, ignoreNulls=true, excludes=["dad", "mom"])
-class Sample {
+public class Sample {
     String id
     String family_id
     String maternal_id
