@@ -34,7 +34,7 @@ process octopus_trio {
     script:
        output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
-echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
+echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} --one-based-indexing \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
     --bamout "${sample.id}.realigned.bams/" \
     -o ${output_path}
@@ -56,7 +56,7 @@ process octopus_fam_or_single {
        }
        """
 echo octopus -R $ref -I $bams \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
     --bamout ${bamout} \
     -o ${output_path}
 touch $output_path
