@@ -29,7 +29,7 @@ process octopus_trio {
            tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
            path(ref)
            path(fai)
-    output: path("${output_path}")
+    output: tuple(val("${sample.id}"), val("${region}"), path("${output_path}"))
     script:
        output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
@@ -46,7 +46,7 @@ process octopus_fam_or_single {
            tuple(val(family_id), path(bams))
            path(ref)
            path(fai)
-    output: path("${output_path}")
+    output: tuple(val("${family_id}"), val("${region}"), path("${output_path}"))
     script:
        output_path="${family_id}.${region}.notrio.vcf"
        bamout="${family_id}.realigned.bams.fam/"
