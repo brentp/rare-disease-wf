@@ -34,7 +34,7 @@ process octopus_trio {
        output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
 echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
     --bamout "${sample.id}.realigned.bams/" \
     -o ${output_path}
 touch $output_path
@@ -55,12 +55,32 @@ process octopus_fam_or_single {
        }
        """
 echo octopus -R $ref -I $bams \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
     --bamout ${bamout} \
     -o ${output_path}
 touch $output_path
        """
 }
+
+process octopus_population {
+    input: tuple(val(region), path(vcfs), path(crams))
+           path(ref)
+           path(fai)
+    output: tuple(val("${region}"), path("${output_path}"))
+    // TODO: use --bamout bams from previous? instead of original crams?
+    script:
+       output_path="${region}.population.vcf"
+       """
+echo octopus -R $ref -I $crams \
+    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
+    --disable-denovo-variant-discovery \
+    -c ${vcfs} \
+    -o ${output_path} > ${output_path}
+       """
+}
+
+
+
 
 include { split_by_size } from "./split"
 
@@ -117,7 +137,7 @@ workflow {
     regions = split_by_size(params.fasta + ".fai", params.chunk_size).splitText() | map { s -> s.replaceAll("\\s", "") }
 
     trs = channel.fromList(trios) | map { it -> [it, it.path, it.dad.path, it.mom.path] } 
-    octopus_trio(regions, trs, params.fasta, params.fasta + ".fai") | view
+    trio_ch = octopus_trio(regions, trs, params.fasta, params.fasta + ".fai")
 
     // now add families to list 
     fams = []
@@ -130,7 +150,14 @@ workflow {
           fams.add(tuple(li.value[0].family_id, fam))
        }
     }
-    fams_ch = channel.fromList(fams) 
-    octopus_fam_or_single(regions, fams_ch, params.fasta, params.fasta + ".fai") | view
+
+
+    by_region = octopus_fam_or_single(regions, channel.fromList(fams), params.fasta, params.fasta + ".fai").concat(trio_ch) 
+              | groupTuple(by: 1, size: 20, remainder:true) \
+              | map { it -> [it[1], it[2], it[0].collect(s -> sample_by_id[s].path)] } \
+
+    by_region | view
+    octopus_population(by_region, params.fasta, params.fasta + ".fai") | view
+    
 
 }
