@@ -36,8 +36,7 @@ process octopus_trio {
 echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
     --bamout "${sample.id}.realigned.bams/" \
-    -o ${output_path}
-touch $output_path
+    -o ${output_path} > $output_path
        """
 }
 
@@ -69,17 +68,28 @@ process octopus_population {
     output: tuple(val("${region}"), path("${output_path}"))
     // TODO: use --bamout bams from previous? instead of original crams?
     script:
-       output_path="${region}.population.vcf"
+       reg=region.replaceAll(":", "_")
+       output_path="${reg}.population.vcf"
+       file("$workDir/${reg}.${workflow.sessionId}.vcfs.list").withWriter { fh ->
+            vcfs.each { vcf ->
+                fh.write(vcf.toString()); fh.write("\n")
+            }
+        }
+       file("$workDir/${reg}.${workflow.sessionId}.crams.list").withWriter { fh ->
+            crams.each { cram ->
+                fh.write(cram.toString()); fh.write("\n")
+            }
+        }
+
        """
-echo octopus -R $ref -I $crams \
+echo octopus -R $ref \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
     --disable-denovo-variant-discovery \
-    -c ${vcfs} \
+    -i ${reg}.${workflow.sessionId}.crams.list \
+    --source-candidates-file ${reg}.${workflow.sessionId}.vcfs.list \
     -o ${output_path} > ${output_path}
        """
 }
-
-
 
 
 include { split_by_size } from "./split"
@@ -152,11 +162,11 @@ workflow {
     }
 
 
+    // now do joint-calling with size 20 as per: https://luntergroup.github.io/octopus/docs/guides/models/population
     by_region = octopus_fam_or_single(regions, channel.fromList(fams), params.fasta, params.fasta + ".fai").concat(trio_ch) 
               | groupTuple(by: 1, size: 20, remainder:true) \
               | map { it -> [it[1], it[2], it[0].collect(s -> sample_by_id[s].path)] } \
 
-    by_region | view
     octopus_population(by_region, params.fasta, params.fasta + ".fai") | view
     
 
