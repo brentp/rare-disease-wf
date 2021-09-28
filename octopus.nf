@@ -51,16 +51,16 @@ echo octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
 
 process octopus_trio {
     input: each(region)
-           tuple(val(sample), path(kid_bam), path(dad_bam), path(mom_bam), path(kid_index), path(dad_index), path(mom_index))
+           tuple(val(family_id), val(sample_id), val(dad_id), val(mom_id), path(kid_bam), path(dad_bam), path(mom_bam), path(kid_index), path(dad_index), path(mom_index))
            path(ref)
            path(fai)
-    output: tuple(val("${sample.family_id}"), val("${region}"), path("${output_path}"))
+    output: tuple(val("${family_id}"), val("${region}"), path("${output_path}"))
     script:
-       output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf.gz"
+       output_path="${sample_id}.${region.replaceAll(':','_')}.trio.vcf.gz"
        """
-echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
+echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${mom_id} -F ${dad_id} \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
-    --bamout "${sample.id}.realigned.bams/" \
+    --bamout "${sample_id}.realigned.bams/" \
     -o ${output_path} > $output_path
        """
 }
@@ -92,6 +92,7 @@ include { octopus_population as octopus_population2 } from "./octopus_pop" // 40
 include { octopus_population as octopus_population3 } from "./octopus_pop" // 8000
 include { octopus_population as octopus_population4 } from "./octopus_pop" // 160000
 
+@groovy.transform.EqualsAndHashCode(includeFields=true, allProperties=true, allNames=true, excludes=["dad", "mom"])
 @groovy.transform.ToString(includeNames=true, ignoreNulls=true, excludes=["dad", "mom"])
 public class Sample {
     String id
@@ -150,7 +151,7 @@ workflow {
 
     regions = split_by_size(params.fasta + ".fai", params.chunk_size).splitText() | map { s -> s.replaceAll("\\s", "") }
 
-    trs = channel.fromList(trios) | map { it -> [it, it.path, it.dad.path, it.mom.path, find_index(it.path), find_index(it.dad.path), find_index(it.mom.path)] } 
+    trs = channel.fromList(trios) | map { it -> [it.family_id, it.id, it.dad.id, it.mom.id, it.path, it.dad.path, it.mom.path, find_index(it.path), find_index(it.dad.path), find_index(it.mom.path)] } 
     trio_ch = octopus_trio(regions, trs, params.fasta, params.fasta + ".fai")
 
     // now add families to list 
