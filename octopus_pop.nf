@@ -8,7 +8,7 @@ process octopus_population {
     // TODO: use --bamout bams from previous? instead of original crams?
     script:
        reg=region.replaceAll(":", "_")
-       output_path="${reg}.${index}.population.vcf"
+       output_path="${reg}.${index}.population.vcf.gz"
        file("$workDir/${reg}.${index}.vcfs.list").withWriter { fh ->
             vcfs.each { vcf ->
                 fh.write(vcf.toString()); fh.write("\n")

@@ -23,6 +23,9 @@ params.ped = false
 if(!params.ped) { exit 1, "--ped is required" }
 params.fasta = false
 if(!params.fasta) { exit 1, "--fasta reference is required" }
+file(params.fasta, checkIfExists:true)
+file(params.fasta + ".fai", checkIfExists:true)
+file(params.ped, checkIfExists:true)
 params.chunk_size = 250000000
 
 process forest_filter {
@@ -48,12 +51,12 @@ echo octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
 
 process octopus_trio {
     input: each(region)
-           tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam), path(kid_index), path(dad_index), path(mom_index))
+           tuple(val(sample), path(kid_bam), path(dad_bam), path(mom_bam), path(kid_index), path(dad_index), path(mom_index))
            path(ref)
            path(fai)
     output: tuple(val("${sample.family_id}"), val("${region}"), path("${output_path}"))
     script:
-       output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
+       output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf.gz"
        """
 echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F ${sample.dad.id} \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
@@ -69,7 +72,7 @@ process octopus_fam_or_single {
            path(fai)
     output: tuple(val("${family_id}"), val("${region}"), path("${output_path}"))
     script:
-       output_path="${family_id}.${region}.notrio.vcf"
+       output_path="${family_id}.${region}.notrio.vcf.gz"
        bamout="${family_id}.realigned.bams.fam/"
        if (bams.size() == 1 ) {
          bamout += "octopus.${family_id}.bam"
@@ -113,7 +116,7 @@ workflow {
             println("ERROR: expecting 7 columns in pedigree file; found ${toks.size()} in line\n${line}")
         }
         s = new Sample(id: toks[1], family_id:toks[0], paternal_id: toks[2], maternal_id: toks[3], 
-                       path: file(toks[6], checkIfExists: false))
+                       path: file(toks[6], checkIfExists: true))
         sample_by_id[s.id] = s
         samples.add(s)
     }
@@ -164,10 +167,11 @@ workflow {
        }
     }
 
+    group_size = 20
 
     // now do joint-calling with size 20 as per: https://luntergroup.github.io/octopus/docs/guides/models/population
     by_region = octopus_fam_or_single(regions, channel.fromList(fams), params.fasta, params.fasta + ".fai").concat(trio_ch) 
-               | groupTuple(by: 1, size: 20, remainder:true) \
+               | groupTuple(by: 1, size: group_size, remainder:true) \
                | map { it -> [it[0].unique(), it[1], it[2]] } // drop duplicate family ids.
 
     // by_region is: [[fam1_id, fam2_id, ...], $region, [vcf1, vcf2, ...]] .. vcfs might be longer than fams.
@@ -180,7 +184,7 @@ workflow {
     // 4 for larger cohorts
 
     op1 = octopus_population1(pop_input, params.fasta, params.fasta + ".fai", "1") 
-           | groupTuple(by: 0, size: 20, remainder: true) \
+           | groupTuple(by: 0, size: group_size, remainder: true) \
            | map { it -> [it[0], it[1], it[2].flatten() ] }
 
     final1 = op1 | filter { it[1].size() == 1 }
@@ -188,7 +192,7 @@ workflow {
 
 
     op2 = octopus_population2(op1, params.fasta, params.fasta + ".fai", "2") 
-           | groupTuple(by: 0, size: 20, remainder: true) \
+           | groupTuple(by: 0, size: group_size, remainder: true) \
            | map { it -> [it[0], it[1], it[2].flatten() ] }
 
     final2 = op2 | filter { it[1].size() == 1 }
