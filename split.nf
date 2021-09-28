@@ -23,7 +23,7 @@ process split {
 }
 
 process split_by_size {
-    container = 'docker://brentp/manta-paragraph:v0.1.0'
+    container = 'docker://brentp/rare-disease:v0.2.1'
 
     input: path(fai)
            val(chunk_size)
