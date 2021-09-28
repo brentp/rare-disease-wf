@@ -61,38 +61,11 @@ touch $output_path
        """
 }
 
-process octopus_population {
-    input: tuple(val(region), path(vcfs), path(crams))
-           path(ref)
-           path(fai)
-    output: tuple(val("${region}"), path("${output_path}"), path(crams))
-    // TODO: use --bamout bams from previous? instead of original crams?
-    script:
-       reg=region.replaceAll(":", "_")
-       output_path="${reg}.population.vcf"
-       file("$workDir/${reg}.${workflow.sessionId}.vcfs.list").withWriter { fh ->
-            vcfs.each { vcf ->
-                fh.write(vcf.toString()); fh.write("\n")
-            }
-        }
-       file("$workDir/${reg}.${workflow.sessionId}.crams.list").withWriter { fh ->
-            crams.each { cram ->
-                fh.write(cram.toString()); fh.write("\n")
-            }
-        }
-
-       """
-echo octopus -R $ref \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
-    --disable-denovo-variant-discovery \
-    -i ${reg}.${workflow.sessionId}.crams.list \
-    --source-candidates-file ${reg}.${workflow.sessionId}.vcfs.list \
-    -o ${output_path} > ${output_path}
-       """
-}
-
-
 include { split_by_size } from "./split"
+include { octopus_population as octopus_population1 } from "./octopus_pop" // 20
+include { octopus_population as octopus_population2 } from "./octopus_pop" // 400
+include { octopus_population as octopus_population3 } from "./octopus_pop" // 8000
+include { octopus_population as octopus_population4 } from "./octopus_pop" // 160000
 
 @groovy.transform.ToString(includeNames=true, ignoreNulls=true, excludes=["dad", "mom"])
 public class Sample {
@@ -176,17 +149,44 @@ workflow {
 
     // by_region is: [[fam1_id, fam2_id, ...], $region, [vcf1, vcf2, ...]] .. vcfs might be longer than fams.
 
-    while (true) {
-        
-        // octopus_population input: tuple(val(region), path(vcfs), path(crams))
-        pop_input = by_region.map { it -> [it[1], it[2], it[0].collect(f -> by_fam[f].collect(s -> s.path)).flatten()] }
-        println("pop_input")
-        //pop_input | view
-        octopus_population(pop_input, params.fasta, params.fasta + ".fai")
+    pop_input = by_region.map { it -> [it[1], it[2], it[0].collect(f -> by_fam[f].collect(s -> s.path)).flatten()] }
 
-        break
-    }
-    
+    // this code below iteratively calls octopus matching the instructions here:
+    // https://luntergroup.github.io/octopus/docs/guides/models/population/
+    // most often only the first 2 calls will be used, but octopus_population3 and
+    // 4 for larger cohorts
+
+    op1 = octopus_population1(pop_input, params.fasta, params.fasta + ".fai", "1") 
+           | groupTuple(by: 0, size: 20, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten() ] }
+
+    final1 = op1 | filter { it[1].size() == 1 }
+    op1 = op1 | filter { it[1].size() > 1 }
+
+
+    op2 = octopus_population2(op1, params.fasta, params.fasta + ".fai", "2") 
+           | groupTuple(by: 0, size: 20, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten() ] }
+
+    final2 = op2 | filter { it[1].size() == 1 }
+    op2 = op2 | filter { it[1].size() > 1 }
+
+    op3 = octopus_population3(op2, params.fasta, params.fasta + ".fai", "3") 
+           | groupTuple(by: 0, size: 20, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten() ] }
+
+    final3 = op3 | filter { it[1].size() == 1 }
+    op3 = op3 | filter { it[1].size() > 1 }
+
+    op4 = octopus_population4(op3, params.fasta, params.fasta + ".fai", "4") 
+           | groupTuple(by: 0, size: 20, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten() ] }
+
+    final4 = op4 | filter { it[1].size() == 1 }
+
+    final_called = final1 | concat(final2, final3, final4)
+    final_called | view
+
     // TODO: filter vcf : https://luntergroup.github.io/octopus/docs/guides/filtering/forest#re-filtering-an-octopus-vcf-with-random-forests
 
 }
