@@ -1,5 +1,6 @@
 nextflow.enable.dsl=2
 
+include  { find_index } from './nf/common'
 params.help = false
 if(params.help) {
 
@@ -24,9 +25,30 @@ params.fasta = false
 if(!params.fasta) { exit 1, "--fasta reference is required" }
 params.chunk_size = 250000000
 
+process forest_filter {
+    input: tuple(val(region), path(vcfs), path(crams))
+           path(ref)
+           path(fai)
+    output: path("${output_path}")
+
+    script:
+       reg=region.replaceAll(":", "_")
+       output_path="octopus.filtered.${reg}.vcf.gz"
+       file("$workDir/${reg}.crams.list").withWriter { fh ->
+            crams.each { cram ->
+                fh.write(cram.toString()); fh.write("\n")
+            }
+        }
+       """
+echo octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
+    --forest /opt/germline.v0.7.4.forest \
+   -o ${output_path} > ${output_path}
+      """
+}
+
 process octopus_trio {
     input: each(region)
-           tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
+           tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam), path(kid_index), path(dad_index), path(mom_index))
            path(ref)
            path(fai)
     output: tuple(val("${sample.family_id}"), val("${region}"), path("${output_path}"))
@@ -42,7 +64,7 @@ echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${sample.mom.id} -F
 
 process octopus_fam_or_single {
     input: each(region)
-           tuple(val(family_id), path(bams))
+           tuple(val(family_id), path(bams), path(indexes))
            path(ref)
            path(fai)
     output: tuple(val("${family_id}"), val("${region}"), path("${output_path}"))
@@ -125,22 +147,23 @@ workflow {
 
     regions = split_by_size(params.fasta + ".fai", params.chunk_size).splitText() | map { s -> s.replaceAll("\\s", "") }
 
-    trs = channel.fromList(trios) | map { it -> [it, it.path, it.dad.path, it.mom.path] } 
+    trs = channel.fromList(trios) | map { it -> [it, it.path, it.dad.path, it.mom.path, find_index(it.path), find_index(it.dad.path), find_index(it.mom.path)] } 
     trio_ch = octopus_trio(regions, trs, params.fasta, params.fasta + ".fai")
 
     // now add families to list 
     fams = []
     non_trio_fam.each { li -> {
           fam = []
+          idx = []
            
           li.value.each { it ->
             fam.add(it.path) 
+            idx.add(find_index(it.path))
           }
-          fams.add(tuple(li.value[0].family_id, fam))
+          fams.add(tuple(li.value[0].family_id, fam, idx))
        }
     }
 
-		
 
     // now do joint-calling with size 20 as per: https://luntergroup.github.io/octopus/docs/guides/models/population
     by_region = octopus_fam_or_single(regions, channel.fromList(fams), params.fasta, params.fasta + ".fai").concat(trio_ch) 
@@ -184,7 +207,8 @@ workflow {
 
     final4 = op4 | filter { it[1].size() == 1 }
 
-    final_called = final1 | concat(final2, final3, final4)
+    final_called = final1 | concat(final2, final3, final4) 
+    final_called = forest_filter(final_called, params.fasta, params.fasta + ".fai")
     final_called | view
 
     // TODO: filter vcf : https://luntergroup.github.io/octopus/docs/guides/filtering/forest#re-filtering-an-octopus-vcf-with-random-forests
