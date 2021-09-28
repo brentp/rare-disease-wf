@@ -43,9 +43,9 @@ process forest_filter {
             }
         }
        """
-echo octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
+octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
     --forest /opt/germline.v0.7.4.forest \
-   -o ${output_path} > ${output_path}
+   -o ${output_path}
       """
 }
 
@@ -58,10 +58,10 @@ process octopus_trio {
     script:
        output_path="${sample_id}.${region.replaceAll(':','_')}.trio.vcf.gz"
        """
-echo octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${mom_id} -F ${dad_id} \
+octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${mom_id} -F ${dad_id} \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
     --bamout "${sample_id}.realigned.bams/" \
-    -o ${output_path} > $output_path
+    -o ${output_path}
        """
 }
 
@@ -78,11 +78,10 @@ process octopus_fam_or_single {
          bamout += "octopus.${family_id}.bam"
        }
        """
-echo octopus -R $ref -I $bams \
+octopus -R $ref -I $bams \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
     --bamout ${bamout} \
     -o ${output_path}
-touch $output_path
        """
 }
 
