@@ -29,7 +29,7 @@ process octopus_trio {
            tuple(val(sample), file(kid_bam), file(dad_bam), file(mom_bam))
            path(ref)
            path(fai)
-    output: tuple(val("${sample.id}"), val("${region}"), path("${output_path}"))
+    output: tuple(val("${sample.family_id}"), val("${region}"), path("${output_path}"))
     script:
        output_path="${sample.id}.${region.replaceAll(':','_')}.trio.vcf"
        """
@@ -65,7 +65,7 @@ process octopus_population {
     input: tuple(val(region), path(vcfs), path(crams))
            path(ref)
            path(fai)
-    output: tuple(val("${region}"), path("${output_path}"))
+    output: tuple(val("${region}"), path("${output_path}"), path(crams))
     // TODO: use --bamout bams from previous? instead of original crams?
     script:
        reg=region.replaceAll(":", "_")
@@ -118,7 +118,7 @@ workflow {
             println("ERROR: expecting 7 columns in pedigree file; found ${toks.size()} in line\n${line}")
         }
         s = new Sample(id: toks[1], family_id:toks[0], paternal_id: toks[2], maternal_id: toks[3], 
-                       path: file(toks[6], checkIfExists: true))
+                       path: file(toks[6], checkIfExists: false))
         sample_by_id[s.id] = s
         samples.add(s)
     }
@@ -135,13 +135,19 @@ workflow {
     }
     // now collect other samples that are not in a trio and group them by
     // family for calling
+    def non_trio_fam = [:]
     def by_fam = [:]
     samples.each { s ->
-        if(in_trio[s.id]) { return }
         if(!by_fam.containsKey(s.family_id)) {
             by_fam[(s.family_id)] = []
         }
         by_fam[(s.family_id)].add(s)
+
+        if(in_trio[s.id]) { return }
+        if(!non_trio_fam.containsKey(s.family_id)) {
+            non_trio_fam[(s.family_id)] = []
+        }
+        non_trio_fam[(s.family_id)].add(s)
     }
 
     regions = split_by_size(params.fasta + ".fai", params.chunk_size).splitText() | map { s -> s.replaceAll("\\s", "") }
@@ -151,7 +157,7 @@ workflow {
 
     // now add families to list 
     fams = []
-    by_fam.each { li -> {
+    non_trio_fam.each { li -> {
           fam = []
            
           li.value.each { it ->
@@ -161,13 +167,26 @@ workflow {
        }
     }
 
+		
 
     // now do joint-calling with size 20 as per: https://luntergroup.github.io/octopus/docs/guides/models/population
     by_region = octopus_fam_or_single(regions, channel.fromList(fams), params.fasta, params.fasta + ".fai").concat(trio_ch) 
-              | groupTuple(by: 1, size: 20, remainder:true) \
-              | map { it -> [it[1], it[2], it[0].collect(s -> sample_by_id[s].path)] } \
+               | groupTuple(by: 1, size: 20, remainder:true) \
+               | map { it -> [it[0].unique(), it[1], it[2]] } // drop duplicate family ids.
 
-    octopus_population(by_region, params.fasta, params.fasta + ".fai") | view
+    // by_region is: [[fam1_id, fam2_id, ...], $region, [vcf1, vcf2, ...]] .. vcfs might be longer than fams.
+
+    while (true) {
+        
+        // octopus_population input: tuple(val(region), path(vcfs), path(crams))
+        pop_input = by_region.map { it -> [it[1], it[2], it[0].collect(f -> by_fam[f].collect(s -> s.path)).flatten()] }
+        println("pop_input")
+        //pop_input | view
+        octopus_population(pop_input, params.fasta, params.fasta + ".fai")
+
+        break
+    }
     
+    // TODO: filter vcf : https://luntergroup.github.io/octopus/docs/guides/filtering/forest#re-filtering-an-octopus-vcf-with-random-forests
 
 }
