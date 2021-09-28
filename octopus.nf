@@ -72,7 +72,7 @@ process octopus_fam_or_single {
            path(fai)
     output: tuple(val("${family_id}"), val("${region}"), path("${output_path}"))
     script:
-       output_path="${family_id}.${region}.notrio.vcf.gz"
+       output_path="${family_id}.${region.replaceAll(':', '_')}.notrio.vcf.gz"
        bamout="${family_id}.realigned.bams.fam/"
        if (bams.size() == 1 ) {
          bamout += "octopus.${family_id}.bam"
@@ -215,7 +215,5 @@ workflow {
     final_called = final1 | concat(final2, final3, final4) 
     final_called = forest_filter(final_called, params.fasta, params.fasta + ".fai")
     final_called | view
-
-    // TODO: filter vcf : https://luntergroup.github.io/octopus/docs/guides/filtering/forest#re-filtering-an-octopus-vcf-with-random-forests
 
 }
