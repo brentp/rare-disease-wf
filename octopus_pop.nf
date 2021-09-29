@@ -22,12 +22,12 @@ process octopus_population {
        if(vcfs.size() > 1) {
 
        """
-echo octopus -R $ref \
+octopus -R $ref \
     -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
     --disable-denovo-variant-discovery \
     -i $workDir/${reg}.${index}.crams.list \
     --source-candidates-file $workDir/${reg}.${index}.vcfs.list \
-    -o ${output_path} > ${output_path}
+    -o ${output_path}
        """
      } else {
       """
