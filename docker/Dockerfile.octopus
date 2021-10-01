@@ -19,14 +19,13 @@ RUN \
     git clone --recursive https://github.com/samtools/htslib && \
     cd htslib && git checkout ${htslib_version} && autoheader && autoconf && \
     ./configure --disable-libcurl --without-libdeflate && \
-    make -j4 CFLAGS="-fPIC -O3" install && \
+    make -j4 CFLAGS="-fPIC -O3 -march=${architecture}" install && \
     cd ../ && \
     git clone --recursive https://github.com/samtools/bcftools && \
     cd bcftools && git checkout ${htslib_version} && autoheader && autoconf && \
     ./configure --disable-libcurl --without-libdeflate && \
-    make -j4 CFLAGS="-fPIC -O3" install && \
+    make -j4 CFLAGS="-fPIC -O3 -march=${architecture}" install && \
     cd ../ && rm -rf htslib bcftools
-
 
 ADD https://github.com/luntergroup/octopus/archive/refs/tags/${octopus_version}.tar.gz .
 ENV CMAKE_BUILD_PARALLEL_LEVEL=5
