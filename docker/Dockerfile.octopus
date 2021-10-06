@@ -1,0 +1,40 @@
+FROM ubuntu:20.04
+
+ARG htslib_version=1.13
+ARG octopus_version=v0.7.4
+ARG architecture=nehalem 
+# sandybridge
+
+
+WORKDIR /opt
+
+RUN apt-get update -qq && apt-get -y --no-install-recommends --no-install-suggests upgrade && \
+    apt-get -y install  --no-install-recommends --no-install-suggests software-properties-common && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test && \
+    apt-get update -qq  && apt-get -y upgrade && \
+    apt-get -y install --no-install-recommends gcc-10 libgmp3-dev git-all python3 build-essential bzip2 git ca-certificates cmake libboost-all-dev zlib1g-dev autoconf python3-distro libbz2-dev liblzma-dev libcurl4-openssl-dev && \
+    apt-get autoremove --yes && rm -rf /var/lib/apt/lists/* 
+
+RUN \
+    git clone --recursive https://github.com/samtools/htslib && \
+    cd htslib && git checkout ${htslib_version} && autoheader && autoconf && \
+    ./configure --disable-libcurl --without-libdeflate && \
+    make -j4 CFLAGS="-fPIC -O3 -march=${architecture}" install && \
+    cd ../ && \
+    git clone --recursive https://github.com/samtools/bcftools && \
+    cd bcftools && git checkout ${htslib_version} && autoheader && autoconf && \
+    ./configure --disable-libcurl --without-libdeflate && \
+    make -j4 CFLAGS="-fPIC -O3 -march=${architecture}" install && \
+    cd ../ && rm -rf htslib bcftools
+
+ADD https://github.com/luntergroup/octopus/archive/refs/tags/${octopus_version}.tar.gz .
+ENV CMAKE_BUILD_PARALLEL_LEVEL=5
+RUN tar xzvf ${octopus_version}.tar.gz && \
+	    cd octopus-*/ && \
+	    ./scripts/install.py --forests --prefix=/usr/local/bin --architecture=${architecture} && \
+	    rm -f ../${octopus_version}.tar.gz && \
+      echo "/usr/local/lib/" >> /etc/ld.so.conf && ldconfig && \
+      cp resources/forests/*.forest /opt/
+
+ENV germline_forest=/opt/germline.${octopus_version}.forest
+ENV somatic_forest=/opt/somatic.${octopus_version}.forest
