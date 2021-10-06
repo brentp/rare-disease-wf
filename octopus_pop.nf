@@ -23,7 +23,7 @@ process octopus_population {
 
        """
 octopus -R $ref \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing \
+    -p Y=2 chrY=2 chrM=1 chrMT=1 MT=1 --threads ${task.cpus} --one-based-indexing \
     --disable-denovo-variant-discovery \
     -i $workDir/${reg}.${index}.crams.list \
     --source-candidates-file $workDir/${reg}.${index}.vcfs.list \

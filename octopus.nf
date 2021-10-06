@@ -58,10 +58,12 @@ process octopus_trio {
     script:
        output_path="${sample_id}.${region.replaceAll(':','_')}.trio.vcf.gz"
        """
+hostname
+which octopus
 octopus -R $ref -I ${kid_bam} ${dad_bam} ${mom_bam} -M  ${mom_id} -F ${dad_id} \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
-    --bamout "${sample_id}.realigned.bams/" \
+    -p Y=2 chrY=2 chrM=1 MT=1 chrMT=1 --threads ${task.cpus} --one-based-indexing -T ${region} \
     -o ${output_path}
+#--bamout "${sample_id}.realigned.bams/" \
        """
 }
 
@@ -78,10 +80,12 @@ process octopus_fam_or_single {
          bamout += "octopus.${family_id}.bam"
        }
        """
+hostname
+which octopus
 octopus -R $ref -I $bams \
-    -p Y=2 chrY=2 -w \$TMPDIR --threads ${task.cpus} --one-based-indexing -T ${region} \
-    --bamout ${bamout} \
+    -p MT=1, chrM=1 chrMT=1 Y=2 chrY=2 --threads ${task.cpus} --one-based-indexing -T ${region} \
     -o ${output_path}
+#--bamout ${bamout} \
        """
 }
 
