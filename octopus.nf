@@ -26,7 +26,7 @@ if(!params.fasta) { exit 1, "--fasta reference is required" }
 file(params.fasta, checkIfExists:true)
 file(params.fasta + ".fai", checkIfExists:true)
 file(params.ped, checkIfExists:true)
-params.chunk_size = 250000000
+params.chunk_size = 100000000
 
 process forest_filter {
     input: tuple(val(region), path(vcfs), path(crams))
@@ -180,7 +180,9 @@ workflow {
 
     // by_region is: [[fam1_id, fam2_id, ...], $region, [vcf1, vcf2, ...]] .. vcfs might be longer than fams.
 
-    pop_input = by_region.map { it -> [it[1], it[2], it[0].collect(f -> by_fam[f].collect(s -> s.path)).flatten()] }
+    pop_input = by_region.map { it -> [it[1], it[2], 
+                                     it[0].collect(f -> by_fam[f].collect(s -> s.path)).flatten(),
+                                     it[0].collect(f -> by_fam[f].collect(s -> find_index(s.path))).flatten() ] }
 
     // this code below iteratively calls octopus matching the instructions here:
     // https://luntergroup.github.io/octopus/docs/guides/models/population/
@@ -189,7 +191,7 @@ workflow {
 
     op1 = octopus_population1(pop_input, params.fasta, params.fasta + ".fai", "1") 
            | groupTuple(by: 0, size: group_size, remainder: true) \
-           | map { it -> [it[0], it[1], it[2].flatten() ] }
+           | map { it -> [it[0], it[1], it[2].flatten(), it[3].flatten() ] }
 
     final1 = op1 | filter { it[1].size() == 1 }
     op1 = op1 | filter { it[1].size() > 1 }
@@ -197,21 +199,21 @@ workflow {
 
     op2 = octopus_population2(op1, params.fasta, params.fasta + ".fai", "2") 
            | groupTuple(by: 0, size: group_size, remainder: true) \
-           | map { it -> [it[0], it[1], it[2].flatten() ] }
+           | map { it -> [it[0], it[1], it[2].flatten(), it[3].flatten() ] }
 
     final2 = op2 | filter { it[1].size() == 1 }
     op2 = op2 | filter { it[1].size() > 1 }
 
     op3 = octopus_population3(op2, params.fasta, params.fasta + ".fai", "3") 
-           | groupTuple(by: 0, size: 20, remainder: true) \
-           | map { it -> [it[0], it[1], it[2].flatten() ] }
+           | groupTuple(by: 0, size: group_size, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten(), it[3].flatten() ] }
 
     final3 = op3 | filter { it[1].size() == 1 }
     op3 = op3 | filter { it[1].size() > 1 }
 
     op4 = octopus_population4(op3, params.fasta, params.fasta + ".fai", "4") 
-           | groupTuple(by: 0, size: 20, remainder: true) \
-           | map { it -> [it[0], it[1], it[2].flatten() ] }
+           | groupTuple(by: 0, size: group_size, remainder: true) \
+           | map { it -> [it[0], it[1], it[2].flatten(), it[3].flatten() ] }
 
     final4 = op4 | filter { it[1].size() == 1 }
 
