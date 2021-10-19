@@ -83,8 +83,9 @@ glnexus_cli \
     --list $workDir/file.list.${cohort_name}.${chrom} \
 | bcftools norm --threads 3 -m - -w 10000 -f $fasta -O u \
 | bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o - -O v \
-| snpEff ann -noStats -dataDir $projectDir GRCh38.99 \
+| snpEff eff -noStats -dataDir $projectDir GRCh38.99 \
 | slivar expr -g $slivar_zip -o $output_file --vcf -
+
 
 bcftools index --threads 6 $output_file
     """
@@ -147,7 +148,7 @@ slivar tsv \
   -s dominant \
   -i gnomad_popmax_af -i gnomad_popmax_af_filter -i gnomad_nhomalt \
   -i impactful -i genic \
-  -c BCSQ \
+  -c ANN \
   -g /opt/slivar/pli.lookup \
   -g /opt/slivar/clinvar_gene_desc.txt \
   -p $ped \
@@ -157,7 +158,7 @@ slivar tsv \
   -s slivar_comphet \
   -i gnomad_popmax_af -i gnomad_popmax_af_filter -i gnomad_nhomalt \
   -i impactful -i genic \
-  -c BCSQ \
+  -c ANN \
   -g /opt/slivar/pli.lookup \
   -g /opt/slivar/clinvar_gene_desc.txt \
   -p $ped \
@@ -345,6 +346,10 @@ params.output_dir = "results-rare-disease"
 
 workflow {
 
+    ped_file = "${file(params.ped).toAbsolutePath()}"
+    slivarzip = "${file(params.slivarzip).toAbsolutePath()}"
+
+
     input = channel.fromPath(params.xams, checkIfExists: true)
                   | map { it -> tuple(it.baseName, it, find_index(it)) }
 
@@ -355,11 +360,11 @@ workflow {
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
 
-    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, params.fasta, params.fasta + ".fai", params.gff, params.slivarzip, params.cohort_name)
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, params.fasta, params.fasta + ".fai", params.gff, slivarzip, params.cohort_name)
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
     jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
-    slivar_results = slivar_rare_disease(jbf, params.ped, params.slivarzip)
+    slivar_results = slivar_rare_disease(jbf, ped_file, slivarzip)
 
     slivar_tsvs = slivar_results | map { it -> it[4] } | collect
     slivar_counts = slivar_results | map { it -> it[5] } | collect
@@ -370,7 +375,7 @@ workflow {
     slivar_merge_tsvs(slivar_tsvs, params.cohort_name)
     slivar_sum_counts(slivar_counts)
 
-    byFamBcfIdx = slivar_split_by_fam(params.ped, slivar_vcfs) | flatMap { it }
+    byFamBcfIdx = slivar_split_by_fam(ped_file, slivar_vcfs) | flatMap { it }
 
     byFamBcf = byFamBcfIdx | filter { "${it}".endsWith(".bcf") } 
         | map { it -> [ file(file(it).baseName).getExtension(), file(it), file(it + ".csi") ] }
@@ -381,7 +386,7 @@ workflow {
     xams = input | map { it -> it[1] } | collect
     indexes = input | map { it -> it[2] } | collect
 
-    generate_jigv_pages(byFamBcf, xams, indexes, params.ped, params.fasta, params.fasta + ".fai")
+    generate_jigv_pages(byFamBcf, xams, indexes, ped_file, params.fasta, params.fasta + ".fai")
     // TODO: get bams grouped by family. dont want to stage all crams for each family.
 
 }
