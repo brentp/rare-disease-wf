@@ -1,7 +1,7 @@
 FROM ubuntu:18.04
 MAINTAINER brentp
 
-ARG slivar_version=v0.2.5
+ARG slivar_version=v0.2.7
 ARG htslib_version=1.12
 ARG glnexus_version=v1.4.1
 ARG tiwih_version=v0.1.6
