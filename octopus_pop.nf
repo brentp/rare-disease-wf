@@ -4,7 +4,7 @@ process octopus_population {
            path(fai)
            val(index) // 1, 2, 3, or 4 just for file naming since we run this
            // process iteratively
-    output: tuple(val("${region}"), path("${output_path}"), val(crams), val(indexes))
+    output: tuple(val("${region}"), path("${output_path}"), path(crams), path(indexes))
     // TODO: use --bamout bams from previous? instead of original crams?
     script:
        reg=region.replaceAll(":", "_")

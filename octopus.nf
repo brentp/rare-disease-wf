@@ -29,7 +29,7 @@ file(params.ped, checkIfExists:true)
 params.chunk_size = 100000000
 
 process forest_filter {
-    input: tuple(val(region), path(vcfs), path(crams))
+    input: tuple(val(region), path(vcfs), path(crams), path(indexes))
            path(ref)
            path(fai)
     output: path("${output_path}")
@@ -44,7 +44,7 @@ process forest_filter {
         }
        """
 octopus -R $ref -i $workDir/${reg}.crams.list --filter-vcf ${vcfs[0]} \
-    --forest /opt/germline.v0.7.4.forest \
+    --forest-model /opt/germline.v0.7.4.forest.gz \
    -o ${output_path}
       """
 }
@@ -218,7 +218,8 @@ workflow {
     final4 = op4 | filter { it[1].size() == 1 }
 
     final_called = final1 | concat(final2, final3, final4) 
-    final_called = forest_filter(final_called, params.fasta, params.fasta + ".fai")
     final_called | view
+    final_result = forest_filter(final_called, params.fasta, params.fasta + ".fai")
+    final_result | view
 
 }
