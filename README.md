@@ -54,6 +54,17 @@ In coming releases, this will:
  1. Output QC with [somalier](https://github.com/brentp/somalier) and other tools to be shown in [multiQC](https://multiQC.info)
  1. Output high-quality SVs (using manta-> graphtyper)
 
+## Octopus
+
+currently, [octopus](https://doi.org/10.1038/s41587-021-00861-3) is included as
+a separate workflow. This octopus.nf pipeline will detect trios and families
+and run them together and then iteratively merge across families using the
+`n+1` schema [described in the octopus
+docs](https://luntergroup.github.io/octopus/docs/guides/models/population)
+Finally, the workflow will do the forest filtering as recommended by the
+octopus documentation.
+We plan to integrate the octopus and deepvariant calls in the future.
+
 
 ## Future Development
 
@@ -74,6 +85,7 @@ Development and research is underway so that it will:
 
 + [DeepVariant](https://github.com/google/deepvariant) Variant Calling with Deep Learning. https://doi.org/10.1038/nbt.4235
 + [GLNexus](https://github.com/dnanexus-rnd/GLnexus) Joint variant calling. http://dx.doi.org/10.1101/343970
++ [octopus](https://github.com/luntergroup/octopus) haplotype-based mutation caller. https://doi.org/10.1038/s41587-021-00861-3
 + [bcftools](https://github.com/samtools/bcftools) BCF/VCF manipulation. https://doi.org/10.1093/gigascience/giab008
 + [bcftools csq](https://github.com/samtools/bcftools) variant consequence annotation. https://doi.org/10.1093/bioinformatics/btx100
 + [htslib](https://github.com/samtools/htslib) C libary for genomics data. https://doi.org/10.1093/gigascience/giab007
