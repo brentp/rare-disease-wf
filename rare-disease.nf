@@ -4,7 +4,7 @@ include  { find_index } from './nf/common'
 
 process DeepVariant {
     label "DeepVariant"
-    container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
+    container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.3.0'
     publishDir "${params.output_dir}/gvcfs/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -15,22 +15,12 @@ process DeepVariant {
         path(fai)
 
     output:
-      //tuple(file("${sample_id}.gvcf.gz"), file("${sample_id}.gvcf.gz.csi"))
       tuple(file("${sample_id}.gvcf.gz"), file("${sample_id}.gvcf.gz.tbi"))
 
 
     script:
     is_cram = aln_file.toString().endsWith(".cram")
     """
-# faster to convert cram to bam, but easier to use original DV image.
-#if [[ "$is_cram" == "true" ]]; then
-#    samtools view --write-index --threads ${task.cpus} -bT $fasta -o ${sample_id}.bam $aln_file
-#else
-#    ln -sf $aln_file ${sample_id}.bam
-#    ln -sf $aln_index ${sample_id}.bam.bai
-#fi
-#--reads=${sample_id}.bam \
-
 echo "TMPDIR:\$TMPDIR"
 
 /opt/deepvariant/bin/run_deepvariant \
@@ -42,8 +32,6 @@ echo "TMPDIR:\$TMPDIR"
     --num_shards=${task.cpus} \
     --ref=$fasta
  
-#rm -f ${sample_id}.bam
-#bcftools index --threads 6 ${sample_id}.gvcf.gz
     """
 }
 
@@ -83,7 +71,7 @@ glnexus_cli \
     --list $workDir/file.list.${cohort_name}.${chrom} \
 | bcftools norm --threads 3 -m - -w 10000 -f $fasta -O u \
 | bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o - -O v \
-| snpEff eff -noStats -dataDir $projectDir GRCh38.99 \
+| snpEff eff -noStats -dataDir $projectDir ${params.genome_build} \
 | slivar expr -g $slivar_zip -o $output_file --vcf -
 
 
@@ -324,6 +312,8 @@ Optional Arguments:
 
    --cohort_name     optional name for the cohort (default: "rare-disease")
    --output_dir      optional name for where to place results (default: "results-rare-disease")
+   --genome-build    GRCh38.99 or GRCh37.75 (default: GRCh38.99)
+
 
     """
 }
