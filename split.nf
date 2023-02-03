@@ -1,6 +1,6 @@
 
 process split {
-    container = 'docker://brentp/rare-disease:v0.0.3'
+    container = 'docker://brentp/rare-disease:v0.2.2'
 
     input: tuple(path(gvcf), path(tbi))
            path(fai)
