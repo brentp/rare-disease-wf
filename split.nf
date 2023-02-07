@@ -16,7 +16,7 @@ process split {
     awk '!(\$2 > 40000000 || \$1 ~/(M|MT)\$/) { print \$1"\\t0\\t"\$2+1 }' $fai > other_chroms
     # if it's non-empty then create the extras / other split file
     if [ -s other_chroms ]; then
-        bcftools view $gvcf --threads 3 -R other_chroms -O z -o \$(basename $gvcf .gvcf.gz).OTHER.split.gvcf.gz
+        bcftools view $gvcf --threads 3 -R other_chroms -O z -o \$(basename $gvcf .gvcf.gz).other.split.gvcf.gz
     fi
     """
 

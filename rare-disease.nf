@@ -49,6 +49,24 @@ echo "TMPDIR:\$TMPDIR"
 
 include { split; split_by_size } from "./split"
 
+process concat_vcfs {
+    container = 'docker://brentp/rare-disease:v0.2.2'
+    shell = ['/bin/bash', '-euo', 'pipefail']
+    publishDir "${params.output_dir}/", mode: 'copy'
+
+    input: path(chrom_vcfs)
+    output: tuple(path(output_file), path(output_csi))
+
+    script:
+        output_file = "${cohort_name}.glnexus.anno.bcf"
+        output_csi = "${output_file}.csi"
+        """
+bcftools concat --threads 4 -O b -o $output_file $chrom_vcfs
+bcftools index --threads 8 $output_file
+        """
+}
+
+
 process glnexus_anno_slivar {
     container = 'docker://brentp/rare-disease:v0.2.2'
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -324,6 +342,7 @@ Optional Arguments:
 
    --cohort_name     optional name for the cohort (default: "rare-disease")
    --output_dir      optional name for where to place results (default: "results-rare-disease")
+   --call_only       if this is set, then exit after joint-calling with glnexus (no slivar stuff)
 
     """
 }
@@ -341,8 +360,7 @@ params.model_type = "WGS"
 if(!params.model_type) { exit 1, "--model_type ('WGS' or 'WES') is required" }
 params.cohort_name = "rare-disease"
 params.output_dir = "results-rare-disease"
-
-
+params.call_only = false
 
 workflow {
 
@@ -364,29 +382,34 @@ workflow {
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
     jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
-    slivar_results = slivar_rare_disease(jbf, ped_file, slivarzip)
+    if (params.call_only) {
+        jbf | concat_vcfs | view
+    } else {
 
-    slivar_tsvs = slivar_results | map { it -> it[4] } | collect
-    slivar_counts = slivar_results | map { it -> it[5] } | collect
-    // get the regular and comphet bcf
-    slivar_vcfs = slivar_results | map { it -> [it[0], it[1]] } | flatten | collect
+		slivar_results = slivar_rare_disease(jbf, ped_file, slivarzip)
+
+		slivar_tsvs = slivar_results | map { it -> it[4] } | collect
+		slivar_counts = slivar_results | map { it -> it[5] } | collect
+		// get the regular and comphet bcf
+		slivar_vcfs = slivar_results | map { it -> [it[0], it[1]] } | flatten | collect
 
 
-    slivar_merge_tsvs(slivar_tsvs, params.cohort_name)
-    slivar_sum_counts(slivar_counts)
+		slivar_merge_tsvs(slivar_tsvs, params.cohort_name)
+		slivar_sum_counts(slivar_counts)
 
-    byFamBcfIdx = slivar_split_by_fam(ped_file, slivar_vcfs) | flatMap { it }
+		byFamBcfIdx = slivar_split_by_fam(ped_file, slivar_vcfs) | flatMap { it }
 
-    byFamBcf = byFamBcfIdx | filter { "${it}".endsWith(".bcf") } 
-        | map { it -> [ file(file(it).baseName).getExtension(), file(it), file(it + ".csi") ] }
-        | groupTuple(by: 0)
+		byFamBcf = byFamBcfIdx | filter { "${it}".endsWith(".bcf") } 
+			| map { it -> [ file(file(it).baseName).getExtension(), file(it), file(it + ".csi") ] }
+			| groupTuple(by: 0)
 
-    //byFamBcf | view
+		//byFamBcf | view
 
-    xams = input | map { it -> it[1] } | collect
-    indexes = input | map { it -> it[2] } | collect
+		xams = input | map { it -> it[1] } | collect
+		indexes = input | map { it -> it[2] } | collect
 
-    generate_jigv_pages(byFamBcf, xams, indexes, ped_file, params.fasta, params.fasta + ".fai")
-    // TODO: get bams grouped by family. dont want to stage all crams for each family.
+		generate_jigv_pages(byFamBcf, xams, indexes, ped_file, params.fasta, params.fasta + ".fai")
+	    // TODO: get bams grouped by family. dont want to stage all crams for each family.
+	}
 
 }

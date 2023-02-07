@@ -27,6 +27,7 @@ nextflow run -resume -profile slurm rare-disease.nf \
     --gff $gff \                   # e.g. from: ftp://ftp.ensembl.org/pub/current_gff3/homo_sapiens/
     --slivarzip gnomad.hg38.zip  \  # from: https://github.com/brentp/slivar#gnotation-files
     --cohort_name my_rare_disease
+    # add  --call_only     to exit after joint-calling with glnexus (no slivar family stuff)
 ```
 
 ## Output
