@@ -6,6 +6,7 @@ process realign {
     publishDir "${params.output_dir}/crams/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
+    cpus = 16
 
     input:
         tuple(val(sample_id), path(aln_file), path(aln_index))
@@ -13,6 +14,12 @@ process realign {
         path(old_fai)
         path(fasta)
         path(fai)
+        path(alt)
+        path(amb)
+        path(ann)
+        path(bwt)
+        path(pac)
+        path(sa)
 
     output:
       tuple(file("${sample_id}.cram"), file("${sample_id}.cram.crai"))
@@ -25,7 +32,7 @@ echo "TMPDIR:\$TMPDIR"
 
 # http://lh3.github.io/2021/07/06/remapping-an-aligned-bam
 samtools collate --reference $old_fasta -Oun128 ${aln_file} | samtools fastq -OT RG,BC - \
-  | bwa mem -pt8 -CH <(samtools view -H ${aln_file} |grep ^@RG) $fasta - \
+  | bwa mem -pt 16 -CH <(samtools view -H ${aln_file} |grep ^@RG) $fasta - \
   | samblaster --addMateTags \
   | samtools sort --write-index -@4 -m4g -o ${sample_id}.cram -
 
@@ -46,7 +53,7 @@ Required Arguments:
                      bams or crams. Sample names should match those in the
    
    --old_fasta       path to fasta to which input bams/crams were aligned.    
-   --fasta           Path to reference fasta for realignment
+   --fasta           Path to reference fasta for realignment (must be indexed with bwa-mem)
 
 
 Optional
@@ -74,7 +81,13 @@ workflow {
 
     bams = realign(input,
                    params.old_fasta, params.old_fasta + ".fai",
-                   params.fasta, params.fasta + ".fai")
+                   params.fasta,
+                   params.fasta + ".fai",
+                   params.fasta + ".amb",
+                   params.fasta + ".ann",
+                   params.fasta + ".bwt",
+                   params.fasta + ".pac",
+                   params.fasta + ".sa")
 
     bams | view
 }
