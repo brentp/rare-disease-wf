@@ -4,7 +4,7 @@ include  { find_index } from './nf/common'
 
 process DeepVariant {
     label "DeepVariant"
-    container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.1.0'
+    container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.4.0'
     publishDir "${params.output_dir}/gvcfs/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
