@@ -28,7 +28,8 @@ RUN \
     git clone --depth 1 https://github.com/GregoryFaust/samblaster.git && \
 	cd samblaster && \
 	make && \
-	cp samblaster /usr/local/bin/
+	cp samblaster /usr/local/bin/ && rm -rf ../samblaster && \
+    mkdir -p /etc/localtime/
    
 
 ADD https://github.com/brentp/tiwih/releases/download/$tiwih_version/tiwih /usr/local/bin

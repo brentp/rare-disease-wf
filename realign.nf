@@ -1,12 +1,18 @@
 nextflow.enable.dsl=2
 
+include  { find_index } from './nf/common'
+
 process realign {
     label "realign"
-    container = 'docker://brentp/realign:v0.1.0'
+    //container = 'docker://brentp/realign:v0.1.0'
+    cache = 'lenient'
+    container = '/scratch/ucgd/lustre-work/quinlan/u6000771/src/platinum-dv-hg38/rare-disease-wf/realign/realign.sif'
     publishDir "${params.output_dir}/crams/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
-    cpus = 16
+    cpus = 64
+    memory = 128.GB
+    time = '92h'
 
     input:
         tuple(val(sample_id), path(aln_file), path(aln_index))
@@ -14,7 +20,7 @@ process realign {
         path(old_fai)
         path(fasta)
         path(fai)
-        path(alt)
+        path(gzi)
         path(amb)
         path(ann)
         path(bwt)
@@ -22,19 +28,21 @@ process realign {
         path(sa)
 
     output:
-      tuple(file("${sample_id}.cram"), file("${sample_id}.cram.crai"))
+      tuple(file("${sample_id}.realign.cram"), file("${sample_id}.realign.cram.crai"))
 
 
     script:
     """
 
+export TMPDIR=/scratch/ucgd/lustre-work/quinlan/u6000771/tmp/
 echo "TMPDIR:\$TMPDIR"
 
 # http://lh3.github.io/2021/07/06/remapping-an-aligned-bam
-samtools collate --reference $old_fasta -Oun128 ${aln_file} | samtools fastq -OT RG,BC - \
+samtools collate --threads 5 --reference $old_fasta -Ou ${aln_file} "\$TMPDIR"/${sample_id} \
+  | samtools fastq -OT RG - \
   | bwa mem -pt 16 -CH <(samtools view -H ${aln_file} |grep ^@RG) $fasta - \
   | samblaster --addMateTags \
-  | samtools sort --write-index -@4 -m4g -o ${sample_id}.cram -
+  | samtools sort --reference $fasta -T \$TMPDIR/${sample_id} --write-index -@4 -m4g -o ${sample_id}.realign.cram -
 
     """
 }
@@ -83,6 +91,7 @@ workflow {
                    params.old_fasta, params.old_fasta + ".fai",
                    params.fasta,
                    params.fasta + ".fai",
+                   params.fasta + ".gzi",
                    params.fasta + ".amb",
                    params.fasta + ".ann",
                    params.fasta + ".bwt",
