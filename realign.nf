@@ -3,15 +3,16 @@ nextflow.enable.dsl=2
 include  { find_index } from './nf/common'
 
 process realign {
+    errorStrategy 'finish'
     label "realign"
-    //container = 'docker://brentp/realign:v0.1.0'
+    //container = 'docker://brentp/realign:v0.1.1'
     cache = 'lenient'
     container = '/scratch/ucgd/lustre-work/quinlan/u6000771/src/platinum-dv-hg38/rare-disease-wf/realign/realign.sif'
     publishDir "${params.output_dir}/crams/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
-    cpus = 64
-    memory = 128.GB
+    cpus = 16
+    memory = 64.GB
     time = '92h'
 
     input:
@@ -34,15 +35,20 @@ process realign {
     script:
     """
 
-export TMPDIR=/scratch/ucgd/lustre-work/quinlan/u6000771/tmp/
+export TMPDIR=/scratch/ucgd/lustre-work/quinlan/u6000771/tmp/${sample_id}
+mkdir -p \$TMPDIR
 echo "TMPDIR:\$TMPDIR"
 
+samtools version
+which samtools
+
+rm -f \${TMPDIR}.collate*
 # http://lh3.github.io/2021/07/06/remapping-an-aligned-bam
-samtools collate --threads 5 --reference $old_fasta -Ou ${aln_file} "\$TMPDIR"/${sample_id} \
+samtools collate -T "\${TMPDIR}.tmp.collate" -n 64 --reference $old_fasta -Ou ${aln_file} "\${TMPDIR}.collate" \
   | samtools fastq -OT RG - \
   | bwa mem -pt 16 -CH <(samtools view -H ${aln_file} |grep ^@RG) $fasta - \
   | samblaster --addMateTags \
-  | samtools sort --reference $fasta -T \$TMPDIR/${sample_id} --write-index -@4 -m4g -o ${sample_id}.realign.cram -
+  | samtools sort --reference $fasta -T \$TMPDIR/sort. --write-index -@2 -m4g -o ${sample_id}.realign.cram -
 
     """
 }
