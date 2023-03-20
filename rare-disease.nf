@@ -58,7 +58,7 @@ process concat_vcfs {
     output: tuple(path(output_file), path(output_csi))
 
     script:
-        output_file = "${cohort_name}.glnexus.anno.bcf"
+        output_file = "${params.cohort_name}.glnexus.anno.bcf"
         output_csi = "${output_file}.csi"
         """
 bcftools concat --threads 4 -O b -o $output_file $chrom_vcfs
@@ -77,8 +77,9 @@ process glnexus_anno_slivar {
         path(fasta)
         path(fai)
         path(gff)
-        path(slivar_zip)
         val(cohort_name)
+
+        //path(slivar_zip)
 
     output: tuple(path(output_file), path(output_csi))
 
@@ -99,10 +100,11 @@ glnexus_cli \
     --mem-gbytes 128 \
     --config DeepVariant${params.model_type} \
     --list $workDir/file.list.${cohort_name}.${chrom} \
-| bcftools norm --threads 3 -m - -w 10000 -f $fasta -O u \
-| bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o - -O v \
-| snpEff eff -noStats -dataDir $projectDir GRCh38.99 \
-| slivar expr -g $slivar_zip -o $output_file --vcf -
+| bcftools norm --threads 3 -m - -w 10000 -f $fasta -O b -o ${output_file} 
+
+#| bcftools csq --threads 3 -s - --ncsq 50 -g $gff -l -f $fasta - -o output_file -O b 
+#| slivar expr -g slivar_zip -o output_file --vcf -
+#| snpEff eff -noStats -dataDir $projectDir GRCh38.99 \
 
 
 bcftools index --threads 6 $output_file
@@ -378,13 +380,15 @@ workflow {
          | map { it -> [it, file(file(file(file(it).baseName).baseName).baseName).getExtension() ] } 
          | groupTuple(by: 1) 
 
-    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, params.fasta, params.fasta + ".fai", params.gff, slivarzip, params.cohort_name)
+    joint_by_chrom = glnexus_anno_slivar(gr_by_chrom, params.fasta, params.fasta + ".fai", params.gff, params.cohort_name)
     // temporary hack since slivar 0.2.1 errors on no usable comphet-side sites.
-    jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
     if (params.call_only) {
-        jbf | concat_vcfs | view
+        vcfs = joint_by_chrom | map { it -> it[0] } | collect
+        vcfs | concat_vcfs | view
+
     } else {
+        jbf = joint_by_chrom | filter { !(it[0].toString() ==~ /.*(MT|Y).glnexus.*/) }
 
 		slivar_results = slivar_rare_disease(jbf, ped_file, slivarzip)
 
