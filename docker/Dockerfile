@@ -1,16 +1,16 @@
 FROM ubuntu:18.04
 MAINTAINER brentp
 
-ARG slivar_version=v0.2.7
-ARG htslib_version=1.12
+ARG slivar_version=v0.3.1
+ARG htslib_version=1.20
 ARG glnexus_version=v1.4.1
-ARG tiwih_version=v0.1.6
-ARG jigv_version=v0.1.8
+ARG tiwih_version=v0.2.0
+ARG jigv_version=v0.1.10
 
 RUN apt-get -qq update && \
      apt-get -qq install -y --no-install-recommends --no-install-suggests \
      curl wget ca-certificates git-core less netbase \
-     openjdk-8-jre-headless unzip \
+     openjdk-11-jre-headless unzip \
      g++ cmake autoconf make file valgrind \
      libjemalloc-dev libzip-dev libsnappy-dev libbz2-dev zlib1g-dev liblzma-dev libzstd-dev \
      python3-pyvcf bcftools pv
@@ -25,9 +25,9 @@ RUN  git clone --depth 1 --branch $glnexus_version https://github.com/dnanexus-r
 
 RUN \
     git clone --depth 1 https://github.com/ebiggers/libdeflate.git && \
-    cd libdeflate && make -j 2 CFLAGS='-fPIC -O3' libdeflate.a && \
-    cp libdeflate.a /usr/local/lib && cp libdeflate.h /usr/local/include && \
-    cd .. && rm -rf libdeflate && \
+    cd libdeflate && mkdir -p build && cd build && cmake -DCMAKE_C_FLAGS="-fPIC -O3" ../ && make -j2 CFLAGS='-fPIC -O3' && \
+    cp ./libdeflate.a /usr/local/lib && cp ../libdeflate.h /usr/local/include && \
+    cd ../.. && rm -rf libdeflate && \
     git clone --recursive --depth 1 --branch $htslib_version https://github.com/samtools/htslib && \
     cd htslib && autoheader && autoconf && \
     ./configure --with-libdeflate && \
