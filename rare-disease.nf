@@ -4,7 +4,8 @@ include  { find_index } from './nf/common'
 
 process DeepVariant {
     label "DeepVariant"
-    container = 'docker://gcr.io/deepvariant-docker/deepvariant:1.6.1'
+    //container = 'docker://google/deepvariant:1.6.1'
+    container = 'google/deepvariant:1.6.1'
     publishDir "${params.output_dir}/gvcfs/", mode: 'copy'
 
     shell = ['/bin/bash', '-euo', 'pipefail']
@@ -31,6 +32,7 @@ process DeepVariant {
 #fi
 #--reads=${sample_id}.bam \
 
+TMPDIR=${params.tmp_dir}
 echo "TMPDIR:\$TMPDIR"
 
 /opt/deepvariant/bin/run_deepvariant \
@@ -343,11 +345,13 @@ Optional Arguments:
    --cohort_name     optional name for the cohort (default: "rare-disease")
    --output_dir      optional name for where to place results (default: "results-rare-disease")
    --call_only       if this is set, then exit after joint-calling with glnexus (no slivar stuff)
+   --tmp_dir         path to temporary directory (default: "/tmp")
 
     """
 }
 params.xams = false
 if(!params.xams) { exit 1, "--xams is required" }
+params.tmp_dir = false
 params.ped = false
 if(!params.ped) { exit 1, "--ped is required" }
 params.fasta = false
@@ -361,6 +365,7 @@ if(!params.model_type) { exit 1, "--model_type ('WGS' or 'WES') is required" }
 params.cohort_name = "rare-disease"
 params.output_dir = "results-rare-disease"
 params.call_only = false
+params.tmp_dir = "/tmp"
 
 workflow {
 
